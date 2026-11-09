@@ -1,0 +1,6 @@
+{
+  "name": "PhD Research & Engineering Portfolio",
+  "description": "Academic research portfolio and technical monograph showcase for PhD applications in Robotics, Physics-Informed Machine Learning, Nonlinear Dynamics, and Autonomous Control Systems.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
