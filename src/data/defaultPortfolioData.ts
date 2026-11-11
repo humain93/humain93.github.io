@@ -501,7 +501,7 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
       "title": "Utility-Scale Electrical Distribution Digital Twin & Spatial Field Sensing Architecture",
       "subtitle": "Northern Electricity Supply PLC (NESCO) · ~2M Meters, ~20,000 km Lines & ~13,000 Transformers",
       "category": "Cyber-Physical & Smart Grid Systems",
-      "status": "Draft",
+      "status": "Published",
       "isTemplatePlaceholder": false,
       "period": "2022 – Present",
       "role": "Executive Engineer & Lead Full-Stack Systems Architect",
