@@ -499,9 +499,9 @@
       "title": "Utility-Scale Electrical Distribution Digital Twin & Spatial Field Sensing Architecture",
       "subtitle": "Northern Electricity Supply PLC (NESCO) · ~2M Meters, ~20,000 km Lines & ~13,000 Transformers",
       "category": "Cyber-Physical & Smart Grid Systems",
-      "status": "Published",
+      "status": "Draft",
       "isTemplatePlaceholder": false,
-      "period": "2018 – Present",
+      "period": "2022 – Present",
       "role": "Executive Engineer & Lead Full-Stack Systems Architect",
       "laboratoryOrInstitution": "Northern Electricity Supply PLC, Rajshahi, Bangladesh",
       "heroImage": "/src/assets/images/smart_grid_digital_twin_gis_1794056017469.jpg",
@@ -514,25 +514,12 @@
       "videoEmbedUrl": "",
       "githubUrl": "",
       "paperUrl": "",
-      "liveDemoSimulationId": "grid-digital-twin",
+      "liveDemoSimulationId": "none",
       "executiveSummary": "Contributed to developing a utility-scale electrical distribution digital twin encompassing ~2 million customer meters, ~20,000 km of lines, and ~13,000 distribution transformers. Independently designed and deployed a production-grade Web GIS visualization platform and an offline-capable Flutter/Dart Mobile field-surveying system backed by Python (Django REST Framework) and PostgreSQL/PostGIS to map complete source-to-meter power connectivity and optimize network operations via load-flow and short-circuit simulations.",
       "problemStatement": "Managing a regional distribution utility serving ~2 million consumers suffers from incomplete topological records between 33/11 kV substations, 11/0.4 kV distribution transformers, and end-user meters. Without an accurate, spatially synchronized digital twin, engineers cannot reliably compute feeder voltage drops, locate technical losses, evaluate short-circuit fault currents, or plan phase-balancing and transformer upgrades.",
       "methodologyArchitecture": "1. Spatial Graph Database & REST Backend: Architected a relational-spatial database in PostgreSQL/PostGIS with a Django REST Framework API modeling hierarchical source-to-meter connectivity (Substation → 11 kV Feeder → Distribution Transformer → Pole → Consumer Meter).\n2. Offline Field Sensing & Mobile Synchronization: Independently built a cross-platform Flutter/Dart mobile surveying application enabling field engineers to capture GPS coordinates, meter telemetry, and pole-to-pole connectivity offline with conflict-free spatial synchronization.\n3. Computational Load-Flow & Reliability Simulation: Integrated network asset data into computational engineering solvers (WindMil / Milsoft) to execute steady-state load-flow simulations, short-circuit current evaluations, and transformer reliability analyses.",
       "experimentalValidation": "Deployed in production across the Northern Electricity Supply PLC distribution network (~20,000 km of lines and ~13,000 transformers). Enabled complete source-to-meter tracing for ~2 million customer meters, supporting data-driven feeder reconfiguration, voltage profile regulation, and capital asset planning.",
-      "equations": [
-        {
-          "id": "eq-grid-1",
-          "title": "Radial Distribution Network Branch-Flow (DistFlow) Equations",
-          "latex": "P_{ij} = \\sum_{k:(j,k)\\in\\mathcal{E}} P_{jk} + r_{ij}\\ell_{ij} + p_j^c, \\quad Q_{ij} = \\sum_{k:(j,k)\\in\\mathcal{E}} Q_{jk} + x_{ij}\\ell_{ij} + q_j^c, \\quad V_j^2 = V_i^2 - 2(r_{ij}P_{ij} + x_{ij}Q_{ij}) + (r_{ij}^2 + x_{ij}^2)\\ell_{ij}",
-          "explanation": "Governing active/reactive power balance and nodal voltage drop along distribution branch (i, j) with impedance z_{ij} = r_{ij} + j x_{ij} and squared current magnitude l_{ij} = |I_{ij}|^2."
-        },
-        {
-          "id": "eq-grid-2",
-          "title": "Hierarchical Source-to-Meter Spatial Connectivity Graph",
-          "latex": "\\mathcal{G}_{\\text{twin}} = (\\mathcal{V}, \\mathcal{E}), \\quad \\mathcal{V} = \\mathcal{V}_{\\text{sub}} \\cup \\mathcal{V}_{\\text{feeder}} \\cup \\mathcal{V}_{\\text{tx}} \\cup \\mathcal{V}_{\\text{meter}}, \\quad |\\mathcal{V}_{\\text{meter}}| \\approx 2 \\times 10^6",
-          "explanation": "Directed acyclic / meshed graph representation stored in PostGIS linking every consumer meter to its upstream distribution transformer and substation breaker."
-        }
-      ],
+      "equations": [],
       "systemArchitecture": {
         "title": "End-to-End Field Sensing, PostGIS Digital Twin & Load-Flow Optimization Architecture",
         "nodes": [
@@ -629,9 +616,9 @@
           },
           {
             "label": "Full-Stack Architecture",
-            "value": "Django",
-            "unit": "+ PostGIS",
-            "comparison": "With Flutter Offline Sync"
+            "value": "Django Rest Framework",
+            "unit": "PostgreSQL + PostGIS",
+            "comparison": "python based Backend with spatial database"
           }
         ]
       },
@@ -643,7 +630,13 @@
         "AutoCAD / GIS Spatial Modeling",
         "SCADA / ADMS"
       ],
-      "documents": []
+      "documents": [],
+      "moduleVisibility": {
+        "showPerformanceGraph": false,
+        "showEquations": false,
+        "showReportDiagnosticsOrTables": false,
+        "showReportCharts": false
+      }
     },
     {
       "id": "proj-predictive-maintenance-ieom",
