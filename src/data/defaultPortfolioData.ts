@@ -83,9 +83,9 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
     {
       "id": "ri-1",
       "index": "01",
-      "title": "Data-Driven Modeling & Physics-Informed Machine Learning",
-      "subtitle": "Sparse Symbolic Discovery (SINDy) · Surrogate Dynamics · Hybrid Physical-ML Models",
-      "description": "Learning parsimonious, physically consistent dynamical models directly from sensor time-series data by embedding conservation laws, control-affine structure, and differential constraints into regression and neural architectures.",
+      "title": "Non Linear Dynamics & System Identification ",
+      "subtitle": "Sparse Identification of Nonlinear Dynamics (SINDy) · Surrogate Dynamics · ",
+      "description": "Data driven approach and machine learning algorithm used to govern physical system equations  from time series measurement data.",
       "coreEquationLatex": "\\dot{\\mathbf{x}} = \\boldsymbol{\\Theta}(\\mathbf{x}, \\mathbf{u})\\boldsymbol{\\Xi}, \\quad \\min_{\\boldsymbol{\\Xi}} \\frac{1}{2}\\|\\dot{\\mathbf{X}} - \\boldsymbol{\\Theta}(\\mathbf{X}, \\mathbf{U})\\boldsymbol{\\Xi}\\|_2^2 + \\lambda \\|\\boldsymbol{\\Xi}\\|_2^2 \\;\\; \\text{s.t. } |\\Xi_{ij}| \\ge \\eta",
       "coreEquationCaption": "Sequential Thresholded Least-Squares / Ridge Regression (STLRidge) for sparse system identification",
       "keyTopics": [
@@ -98,10 +98,10 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
     {
       "id": "ri-2",
       "index": "02",
-      "title": "Nonlinear Dynamics, System Identification & Intelligent Control",
+      "title": "Intelligent Learning & Control",
       "subtitle": "Model-Based Reinforcement Learning (SINDy-RL) · Swing-Up Control · Thermo-Fluid Dynamics",
-      "description": "Combining identified nonlinear state-space models with policy-gradient reinforcement learning (PPO) and classical nonlinear control to achieve high sample efficiency and interpretable closed-loop policies.",
-      "coreEquationLatex": "\\pi_{\\boldsymbol{\\phi}}^{*} = \\arg\\max_{\\boldsymbol{\\phi}} \\mathbb{E}_{\\tau \\sim \\hat{f}_{\\text{SINDy}}} \\left[ \\sum_{k=0}^{T} \\gamma^k r(\\mathbf{x}_k, u_k) \\right], \\quad \\mathbf{x}_{k+1} = \\hat{f}_{\\text{SINDy}}(\\mathbf{x}_k, u_k)",
+      "description": "Combining identified nonlinear state-space models (surrogate) with policy-gradient reinforcement learning (PPO) to reduce computational cost while optimizing control policies for maximizing cumulative rewards.",
+      "coreEquationLatex": "\\begin{align} V^\\pi(x) &= \\mathbb{E}\\left[ \\sum_{k=0}^{\\infty} \\gamma^k r_k \\,\\middle|\\, x_0 = x \\right] \\\\  \\pi(x) &\\approx \\pi_\\phi(x) \\\\  a_t &\\sim \\pi_\\phi(a_t \\mid x_t) \\end{align}",
       "coreEquationCaption": "Dyna-style model-based reinforcement learning over sparse identified surrogate dynamics",
       "keyTopics": [
         "SINDy-RL & Surrogate Policy Training",
@@ -114,9 +114,9 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
       "id": "ri-3",
       "index": "03",
       "title": "Sensing, Perception & Autonomy",
-      "subtitle": "Multi-Sensor Predictive Maintenance · Field Data Acquisition · Spatial Synchronization",
-      "description": "Designing end-to-end sensing pipelines—from industrial vibration/thermal transducers and offline mobile field surveying to automated anomaly detection and state estimation for autonomous and cyber-physical assets.",
-      "coreEquationLatex": "\\hat{y}_{\\text{health}} = \\mathcal{M}_{\\text{hybrid}}\\left(\\Phi_{\\text{time}}(\\mathbf{s}_{1:T}), \\, \\Phi_{\\text{freq}}(\\mathcal{F}\\{\\mathbf{s}_{1:T}\\})\\right)",
+      "subtitle": "nonlinear estimation, numerical and distributed optimization, probabilistic inference, graph theory and computer vision.",
+      "description": "Developing intelligent perception and autonomy systems integrating multi-modal sensing, environmental understanding, localization, mapping, and motion planning for safe navigation and autonomous driving.",
+      "coreEquationLatex": "",
       "coreEquationCaption": "Hybrid time-frequency sensor feature fusion for predictive fault diagnostics",
       "keyTopics": [
         "Smart Manufacturing Sensor Fusion (IEOM 2026)",
