@@ -339,7 +339,7 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
       "videoEmbedUrl": "",
       "githubUrl": "https://www.researchgate.net/publication/365315997",
       "paperUrl": "/assets/aistudio/ICMIEE-PI-160369_0cd47271.pdf",
-      "liveDemoSimulationId": "si-engine-heat-transfer",
+      "liveDemoSimulationId": "none",
       "executiveSummary": "A comparative numerical study of five empirical convective heat transfer models—Annand (1963), Woschni (1967), Modified Woschni (Finol & Robinson), Hohenberg (1979), and Han et al. (1997)—in a two-zone spark-ignition (SI) engine cycle simulation written in MATLAB (ODE23, 1° crank-angle step). Simulated cylinder pressure, burned/unburned zone temperatures, cumulative work, heat flux, and piston-ring blow-by leakage were benchmarked against experimental pressure measurements by Rakopoulos [8] and evaluated across varying fuels (Gasoline, Methanol), equivalence ratios (φ = 0.8, 1.0, 1.2), engine speeds (3000–3500 rpm), and spark advances (0°–40°).",
       "problemStatement": "Heat transfer from cylinder walls is a major factor governing internal combustion engine performance, exhaust emissions, cooling system design, and thermally induced mechanical stresses. Because a single empirical correlation rarely predicts heat flux accurately across all strokes of the engine cycle, engine modelers need a rigorous two-zone comparative analysis against experimental cylinder pressure traces to determine which heat transfer correlation performs best during compression, combustion, and expansion.",
       "methodologyArchitecture": "1. Two-Zone Closed Thermodynamic Cycle (IVC to EVO): Formulated the First Law of Thermodynamics following Ferguson [1] by splitting the cylinder mixture into burned (T_b) and unburned (T_u) zones sharing uniform pressure P(θ), coupled with a Wiebe burn-rate law (b = 5, n = 3, θ_s = -30°) and exponential piston-ring blow-by mass loss (C_blow_by = 1.1).\n2. Five Heat Transfer Correlations in MATLAB ODE23: Implemented Annand (a = 0.5, b = 0.7), Woschni (C₁ = 2.28, C₂ = 3.24×10⁻³), Modified Woschni (characteristic height L(t) = 4V/πd_p², α = 1000), Hohenberg (instantaneous volume V^(-0.06), C₁ = 130, C₂ = 1.4), and Han et al. (C₁ = 687, C₂ = 0.494, C₃ = 7.3×10⁻⁷, k = 1.35) using a 1° step size in MATLAB ODE23 (Bore B = 3 inch, Stroke = 35/8 inch, ε = 0.25, T_wall = 420 K, T₁ = 310 K, P₁ = 101.325 kPa).\n3. Experimental Validation & Parametric Sweeps: Benchmarked P–θ and P–V indicator diagrams against experimental measurements by Rakopoulos [8], and tested sensitivity across Methanol (φ = 1.0, 3000 rpm), Gasoline (φ = 0.8 at 3000 rpm; φ = 1.2 at 3500 rpm), and spark advance angles (0° to 40°).",
@@ -490,7 +490,10 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
           "url": "/assets/aistudio/ICMIEE-PI-160369_0cd47271.pdf",
           "type": "Paper PDF"
         }
-      ]
+      ],
+      "moduleVisibility": {
+        "showReportSimulator": false
+      }
     },
     {
       "id": "proj-digital-twin-grid",
