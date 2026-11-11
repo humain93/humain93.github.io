@@ -143,14 +143,14 @@
     {
       "id": "proj-sindy-rl",
       "slug": "sindy-rl-model-based-reinforcement-learning",
-      "title": "SINDy-RL Cart-Pole: Reproduction, Diagnostics & Learned-Model Simulation",
+      "title": "SINDy-RL Cart-Pole: Implementation, Diagnostics & Learned-Model Simulation",
       "subtitle": "Model-Based RL · Sparse System Identification · Dyna-Style PPO on dm_control Cart-Pole Swing-Up",
       "category": "Nonlinear Dynamics & Reinforcement learning",
       "status": "Published",
       "isTemplatePlaceholder": false,
-      "period": "2025 – 2026",
+      "period": "2026",
       "role": "Independent Researcher",
-      "laboratoryOrInstitution": "End-to-End Reproduction & Failure-Mode Diagnosis of Zolman et al. (2024)",
+      "laboratoryOrInstitution": "",
       "heroImage": "/src/assets/images/sindy_rl_cartpole_architecture_1794056013583.jpg",
       "galleryImages": [
         {
@@ -159,9 +159,9 @@
         }
       ],
       "videoEmbedUrl": "",
-      "githubUrl": "https://github.com",
+      "githubUrl": "",
       "paperUrl": "/assets/aistudio/SINDy-RL_Cart-Pole__Reproduction__Diagnostics___Learned-Model_Simulation_2425c262.html",
-      "liveDemoSimulationId": "sindy-rl-cartpole",
+      "liveDemoSimulationId": "none",
       "executiveSummary": "An end-to-end reproduction and failure-mode diagnosis of Zolman et al. (2024), SINDy-RL, on the nonlinear dm_control cart-pole swing-up task. Built from scratch on a single laptop CPU using an ensemble of sparse polynomial models (PySINDy, 20 models, STLRidge) to learn discrete-time dynamics (Δt = 0.01 s) and reward from ~48k real environment steps (8k offline + 40 × 1k on-policy), while training a 2×64 tanh PPO policy inside the surrogate via Ray RLlib.",
       "problemStatement": "Model-free RL (such as PPO) needs millions of environment interactions to swing up and balance a cart-pole from hanging down. SINDy-RL replaces the real environment with a tiny, human-readable set of polynomial equations fit from only a few thousand real steps, then trains PPO entirely inside that learned model. However, during Dyna-style training, real returns peak at 610.2 (update 25, inside the paper’s 600–650 band) before oscillating between 250 and 610—raising a fundamental scientific question: is the learned SINDy dynamics model degrading, or is policy optimization exploiting surrogate drift?",
       "methodologyArchitecture": "1. Sparse Dictionary & Ensemble STLRidge (Δt = 0.01 s): Formulated a 41-term quadratic control-affine candidate library Θ(x, u) over state x = [x, cos θ, sin θ, ẋ, θ̇] and scalar force u (205 possible terms across 5 state equations). Fitted a 20-model bagged ensemble via Sequential Thresholded Ridge Regression (STLRidge, threshold = 0.005, α = 0.05), pruning the dynamics down to 14 non-zero terms (93.2% sparse) and reward to 5 terms.\n2. Surrogate-Guided Ray RLlib PPO: Trained a 2×64 tanh MLP policy with PPO entirely inside the learned SINDy world model (70k surrogate steps per Dyna iteration; 2.8M total surrogate steps vs. 48k real steps), collecting 1,000 on-policy real steps per update and clipping out-of-bounds trajectories (|x| > 2 or |v| > 10).\n3. Controlled 6-Hypothesis Diagnostic Investigation: Executed targeted experiments isolating dynamics refit collapse, policy drift / model exploitation, off-policy buffer pollution, reward model collapse, control-authority loss, and single-seed variance.",
