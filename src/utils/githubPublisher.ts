@@ -491,7 +491,7 @@ jobs:
         with:
           path: "./dist"
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy compiled bundle to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
 `;

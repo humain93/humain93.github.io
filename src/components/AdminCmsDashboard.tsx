@@ -163,6 +163,11 @@ export const AdminCmsDashboard: React.FC<AdminCmsDashboardProps> = ({
   const [saveBanner, setSaveBanner] = useState<string | null>(null);
   const [newCategoryInput, setNewCategoryInput] = useState<string>('');
 
+  // Keep CMS draft synchronized whenever the underlying portfolio context loads latest data from GitHub / storage
+  useEffect(() => {
+    setDraft(JSON.parse(JSON.stringify(data)));
+  }, [data]);
+
   // Helpers to safely read/update categories, simulationsConfig, and sectionControls on draft
   const draftCategories: string[] = (() => {
     const base =
@@ -284,6 +289,9 @@ export const AdminCmsDashboard: React.FC<AdminCmsDashboardProps> = ({
   };
 
   const handlePublishToGitHubNow = async (dataToPublish = draft) => {
+    // Always persist to localStorage and local server first so reloads immediately reflect the edit
+    await savePortfolioData(dataToPublish);
+
     if (!isGitHubConfigured) {
       setActiveTab('deployment');
       setGhStatusMsg({

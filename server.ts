@@ -2,18 +2,15 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
-import { DEFAULT_PORTFOLIO_DATA } from './src/data/defaultPortfolioData.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DATA_DIR = path.join(__dirname, 'public', 'data');
-const DB_FILE = path.join(DATA_DIR, 'portfolio-db-v6.json');
 const PUBLIC_JSON_FILE = path.join(PUBLIC_DATA_DIR, 'portfolio.json');
 const DEFAULT_TS_FILE = path.join(__dirname, 'src', 'data', 'defaultPortfolioData.ts');
-const PASSCODE_FILE = path.join(DATA_DIR, 'admin-auth.json');
+
+let runtimeAdminPasscode = process.env.ADMIN_PASSCODE || 'phd2027';
 
 function syncStaticSourceFiles(portfolioData: unknown) {
   try {
@@ -32,81 +29,44 @@ function syncStaticSourceFiles(portfolioData: unknown) {
   }
 }
 
-function ensureDataFiles() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(PUBLIC_DATA_DIR)) {
-    fs.mkdirSync(PUBLIC_DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(DEFAULT_PORTFOLIO_DATA, null, 2), 'utf-8');
-  } else {
-    try {
-      const existing = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
-      let updated = false;
-      if (!existing.projectCategories && DEFAULT_PORTFOLIO_DATA.projectCategories) {
-        existing.projectCategories = DEFAULT_PORTFOLIO_DATA.projectCategories;
-        updated = true;
-      }
-      if (!existing.simulationsConfig && DEFAULT_PORTFOLIO_DATA.simulationsConfig) {
-        existing.simulationsConfig = DEFAULT_PORTFOLIO_DATA.simulationsConfig;
-        updated = true;
-      }
-      if (!existing.sectionControls && DEFAULT_PORTFOLIO_DATA.sectionControls) {
-        existing.sectionControls = DEFAULT_PORTFOLIO_DATA.sectionControls;
-        updated = true;
-      }
-      if (updated) {
-        fs.writeFileSync(DB_FILE, JSON.stringify(existing, null, 2), 'utf-8');
-      }
-    } catch {
-      // ignore parse errors
-    }
-  }
-  if (!fs.existsSync(PUBLIC_JSON_FILE)) {
-    fs.writeFileSync(PUBLIC_JSON_FILE, JSON.stringify(DEFAULT_PORTFOLIO_DATA, null, 2), 'utf-8');
-  }
-  if (!fs.existsSync(PASSCODE_FILE)) {
-    const initialPasscode = process.env.ADMIN_PASSCODE || 'phd2027';
-    fs.writeFileSync(PASSCODE_FILE, JSON.stringify({ passcode: initialPasscode }, null, 2), 'utf-8');
-  }
-}
-
-function getAdminPasscode(): string {
+async function readPortfolioData(): Promise<unknown> {
   try {
-    ensureDataFiles();
-    const raw = fs.readFileSync(PASSCODE_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    return parsed.passcode || 'phd2027';
-  } catch {
-    return 'phd2027';
+    if (fs.existsSync(PUBLIC_JSON_FILE)) {
+      const content = fs.readFileSync(PUBLIC_JSON_FILE, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.warn('Error reading public/data/portfolio.json, falling back to defaultPortfolioData.ts:', err);
   }
+  const mod = await import('./src/data/defaultPortfolioData.ts');
+  return mod.DEFAULT_PORTFOLIO_DATA;
 }
 
 async function startServer() {
-  ensureDataFiles();
   const app = express();
   const PORT = 3000;
+
+  // Bind port 3000 immediately before loading Vite so container health checks succeed instantaneously
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Academic Research Portfolio & CMS server listening on http://localhost:${PORT}`);
+  });
 
   // Increase payload limit to support base64 image & CV PDF uploads in CMS
   app.use(express.json({ limit: '25mb' }));
 
-  app.get('/api/portfolio', (_req, res) => {
+  app.get('/api/portfolio', async (_req, res) => {
     try {
-      ensureDataFiles();
-      const content = fs.readFileSync(DB_FILE, 'utf-8');
-      res.json(JSON.parse(content));
+      const data = await readPortfolioData();
+      res.json(data);
     } catch (err) {
       console.error('Error reading portfolio database:', err);
-      res.json(DEFAULT_PORTFOLIO_DATA);
+      res.status(500).json({ error: 'Failed to load portfolio data.' });
     }
   });
 
   app.post('/api/auth/verify', (req, res) => {
     const { passcode } = req.body || {};
-    const expected = getAdminPasscode();
-    if (passcode === expected) {
+    if (passcode === runtimeAdminPasscode) {
       res.json({ authenticated: true });
     } else {
       res.status(401).json({ authenticated: false, error: 'Invalid admin passcode.' });
@@ -115,8 +75,7 @@ async function startServer() {
 
   app.post('/api/auth/update-passcode', (req, res) => {
     const { currentPasscode, newPasscode } = req.body || {};
-    const expected = getAdminPasscode();
-    if (currentPasscode !== expected) {
+    if (currentPasscode !== runtimeAdminPasscode) {
       res.status(401).json({ error: 'Current passcode is incorrect.' });
       return;
     }
@@ -124,15 +83,14 @@ async function startServer() {
       res.status(400).json({ error: 'New passcode must be at least 4 characters.' });
       return;
     }
-    fs.writeFileSync(PASSCODE_FILE, JSON.stringify({ passcode: newPasscode.trim() }, null, 2), 'utf-8');
+    runtimeAdminPasscode = newPasscode.trim();
     res.json({ success: true });
   });
 
   app.put('/api/portfolio', (req, res) => {
     try {
       const providedPasscode = req.headers['x-admin-passcode'] as string | undefined;
-      const expected = getAdminPasscode();
-      if (providedPasscode && providedPasscode !== expected) {
+      if (providedPasscode && providedPasscode !== runtimeAdminPasscode) {
         res.status(401).json({ error: 'Unauthorized CMS write attempt.' });
         return;
       }
@@ -141,8 +99,6 @@ async function startServer() {
         res.status(400).json({ error: 'Invalid portfolio payload structure.' });
         return;
       }
-      ensureDataFiles();
-      fs.writeFileSync(DB_FILE, JSON.stringify(updatedData, null, 2), 'utf-8');
       syncStaticSourceFiles(updatedData);
       res.json({ success: true, data: updatedData });
     } catch (err) {
@@ -151,18 +107,16 @@ async function startServer() {
     }
   });
 
-  app.post('/api/portfolio/reset', (req, res) => {
+  app.post('/api/portfolio/reset', async (req, res) => {
     try {
       const providedPasscode = req.headers['x-admin-passcode'] as string | undefined;
-      const expected = getAdminPasscode();
-      if (providedPasscode && providedPasscode !== expected) {
+      if (providedPasscode && providedPasscode !== runtimeAdminPasscode) {
         res.status(401).json({ error: 'Unauthorized reset attempt.' });
         return;
       }
-      ensureDataFiles();
-      fs.writeFileSync(DB_FILE, JSON.stringify(DEFAULT_PORTFOLIO_DATA, null, 2), 'utf-8');
-      syncStaticSourceFiles(DEFAULT_PORTFOLIO_DATA);
-      res.json({ success: true, data: DEFAULT_PORTFOLIO_DATA });
+      const mod = await import('./src/data/defaultPortfolioData.ts');
+      syncStaticSourceFiles(mod.DEFAULT_PORTFOLIO_DATA);
+      res.json({ success: true, data: mod.DEFAULT_PORTFOLIO_DATA });
     } catch (err) {
       console.error('Error resetting portfolio database:', err);
       res.status(500).json({ error: 'Failed to reset portfolio data.' });
@@ -170,10 +124,12 @@ async function startServer() {
   });
 
   if (process.env.NODE_ENV !== 'production') {
-    const vitePromise = createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
+    const vitePromise = import('vite').then(({ createServer }) =>
+      createServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      })
+    );
     app.use(async (req, res, next) => {
       try {
         const vite = await vitePromise;
@@ -189,11 +145,6 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
-
-  // Start listening on PORT 3000 immediately so the container health check succeeds without delay
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Academic Research Portfolio & CMS server listening on http://localhost:${PORT}`);
-  });
 }
 
 startServer();
