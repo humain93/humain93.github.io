@@ -23,6 +23,7 @@ interface ProjectDetailViewProps {
   onEditProjectInCms: (projectId: string) => void;
   allProjects: ResearchProject[];
   onSelectProject: (slug: string) => void;
+  isAdminAuthenticated?: boolean;
 }
 
 export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
@@ -31,6 +32,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   onEditProjectInCms,
   allProjects,
   onSelectProject,
+  isAdminAuthenticated = false,
 }) => {
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; caption: string } | null>(
@@ -170,14 +172,16 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             </a>
           )}
 
-          <button
-            type="button"
-            onClick={() => onEditProjectInCms(project.id)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-            Edit Project in CMS
-          </button>
+          {isAdminAuthenticated && (
+            <button
+              type="button"
+              onClick={() => onEditProjectInCms(project.id)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              Edit Project in CMS
+            </button>
+          )}
         </div>
       </div>
 

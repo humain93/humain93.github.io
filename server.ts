@@ -7,16 +7,58 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PUBLIC_DATA_DIR = path.join(__dirname, 'public', 'data');
+const PUBLIC_UPLOADS_DIR = path.join(__dirname, 'public', 'assets', 'uploads');
 const PUBLIC_JSON_FILE = path.join(PUBLIC_DATA_DIR, 'portfolio.json');
 const DEFAULT_TS_FILE = path.join(__dirname, 'src', 'data', 'defaultPortfolioData.ts');
 
 let runtimeAdminPasscode = process.env.ADMIN_PASSCODE || 'phd2027';
 
-function syncStaticSourceFiles(portfolioData: unknown) {
+/**
+ * Automatically extracts any embedded base64 data URLs (such as CV PDFs or large images)
+ * into physical files inside `/public/assets/uploads/` so `portfolio.json` and
+ * `defaultPortfolioData.ts` remain lightweight (< 100 KB) and sync cleanly with GitHub.
+ */
+function sanitizeEmbeddedBase64Assets(portfolioData: Record<string, any>): Record<string, any> {
+  try {
+    if (!fs.existsSync(PUBLIC_UPLOADS_DIR)) {
+      fs.mkdirSync(PUBLIC_UPLOADS_DIR, { recursive: true });
+    }
+
+    // 1. Check CV uploadedPdfDataUrl
+    if (
+      portfolioData.cv &&
+      typeof portfolioData.cv.uploadedPdfDataUrl === 'string' &&
+      portfolioData.cv.uploadedPdfDataUrl.startsWith('data:application/pdf;base64,')
+    ) {
+      const base64Str = portfolioData.cv.uploadedPdfDataUrl.replace(
+        /^data:application\/pdf;base64,/,
+        ''
+      );
+      const safeFileName = (portfolioData.cv.fileName || 'CV_SK_HUMAIN_AHMED.pdf').replace(
+        /[^a-zA-Z0-9._-]/g,
+        '_'
+      );
+      const outPath = path.join(PUBLIC_UPLOADS_DIR, safeFileName);
+      fs.writeFileSync(outPath, Buffer.from(base64Str, 'base64'));
+      portfolioData.cv.externalPdfUrl = `/assets/uploads/${safeFileName}`;
+      portfolioData.cv.uploadedPdfDataUrl = '';
+    }
+  } catch (err) {
+    console.warn('Could not extract base64 asset to disk:', err);
+  }
+  return portfolioData;
+}
+
+function syncStaticSourceFiles(rawPortfolioData: unknown) {
   try {
     if (!fs.existsSync(PUBLIC_DATA_DIR)) {
       fs.mkdirSync(PUBLIC_DATA_DIR, { recursive: true });
     }
+    const portfolioData =
+      rawPortfolioData && typeof rawPortfolioData === 'object'
+        ? sanitizeEmbeddedBase64Assets(rawPortfolioData as Record<string, any>)
+        : rawPortfolioData;
+
     fs.writeFileSync(PUBLIC_JSON_FILE, JSON.stringify(portfolioData, null, 2), 'utf-8');
     const tsContent = `import { PortfolioDatabase } from '../types/portfolio';\n\nexport const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = ${JSON.stringify(
       portfolioData,
@@ -51,7 +93,7 @@ async function startServer() {
     console.log(`Academic Research Portfolio & CMS server listening on http://localhost:${PORT}`);
   });
 
-  // Increase payload limit to support base64 image & CV PDF uploads in CMS
+  // Support base64 asset & JSON payloads
   app.use(express.json({ limit: '25mb' }));
 
   app.get('/api/portfolio', async (_req, res) => {
@@ -85,6 +127,42 @@ async function startServer() {
     }
     runtimeAdminPasscode = newPasscode.trim();
     res.json({ success: true });
+  });
+
+  // Upload binary file (PDF or image) directly to /public/assets/uploads/<filename>
+  app.post('/api/upload-asset', (req, res) => {
+    try {
+      const providedPasscode = req.headers['x-admin-passcode'] as string | undefined;
+      if (providedPasscode && providedPasscode !== runtimeAdminPasscode) {
+        res.status(401).json({ error: 'Unauthorized upload attempt.' });
+        return;
+      }
+      const { fileName, dataUrl } = req.body || {};
+      if (!fileName || !dataUrl || typeof dataUrl !== 'string') {
+        res.status(400).json({ error: 'Missing fileName or dataUrl.' });
+        return;
+      }
+      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) {
+        res.status(400).json({ error: 'Invalid base64 dataUrl format.' });
+        return;
+      }
+      if (!fs.existsSync(PUBLIC_UPLOADS_DIR)) {
+        fs.mkdirSync(PUBLIC_UPLOADS_DIR, { recursive: true });
+      }
+      const safeName = String(fileName).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const targetName = `${Date.now()}_${safeName}`;
+      const filePath = path.join(PUBLIC_UPLOADS_DIR, targetName);
+      fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
+      res.json({
+        ok: true,
+        assetPath: `/assets/uploads/${targetName}`,
+        fileName: safeName,
+      });
+    } catch (err) {
+      console.error('Error saving uploaded asset:', err);
+      res.status(500).json({ error: 'Failed to save uploaded asset to disk.' });
+    }
   });
 
   app.put('/api/portfolio', (req, res) => {

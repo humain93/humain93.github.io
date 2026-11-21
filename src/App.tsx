@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ArrowRight,
   BookOpen,
@@ -11,9 +11,7 @@ import {
   Copy,
   Download,
   Edit3,
-  ExternalLink,
-  FileText,
-  GitBranch,
+  Lock,
   Mail,
   MapPin,
   Phone,
@@ -29,7 +27,7 @@ import { ProjectDetailView } from './components/ProjectDetailView';
 import { AdminCmsDashboard } from './components/AdminCmsDashboard';
 
 function PortfolioMainContent() {
-  const { data } = usePortfolio();
+  const { data, isAdminAuthenticated, logoutAdmin } = usePortfolio();
 
   const [viewMode, setViewMode] = useState<'home' | 'project-detail' | 'cms'>('home');
   const [activeProjectSlug, setActiveProjectSlug] = useState<string | null>(null);
@@ -40,6 +38,41 @@ function PortfolioMainContent() {
   const [copiedBibtexId, setCopiedBibtexId] = useState<string | null>(null);
   const [activeLabSim, setActiveLabSim] = useState<SimulationMode>('sindy-rl-cartpole');
   const [showInlineCvPdf, setShowInlineCvPdf] = useState<boolean>(false);
+
+  // Administrator-only access triggers:
+  // 1. URL hash (#admin or #cms) or query param (?admin=1 or ?cms=1)
+  // 2. Keyboard shortcut Ctrl+Shift+A (or Cmd+Shift+A)
+  useEffect(() => {
+    const checkUrlForAdminEntry = () => {
+      const hash = window.location.hash.toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+      if (
+        hash === '#admin' ||
+        hash === '#cms' ||
+        params.get('admin') === '1' ||
+        params.get('cms') === '1'
+      ) {
+        setViewMode('cms');
+      }
+    };
+
+    checkUrlForAdminEntry();
+    window.addEventListener('hashchange', checkUrlForAdminEntry);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        setViewMode((prev) => (prev === 'cms' ? 'home' : 'cms'));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('hashchange', checkUrlForAdminEntry);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   const sec = data.sectionControls || {
     showHeroPillarsStrip: true,
@@ -154,6 +187,9 @@ function PortfolioMainContent() {
   const openProjectDetail = (slug: string) => {
     setActiveProjectSlug(slug);
     setViewMode('project-detail');
+    if (window.location.hash === '#admin' || window.location.hash === '#cms') {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -161,6 +197,13 @@ function PortfolioMainContent() {
     setCmsEditProjectId(projectId);
     setViewMode('cms');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const exitCmsView = () => {
+    setViewMode('home');
+    if (window.location.hash === '#admin' || window.location.hash === '#cms') {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
   };
 
   const handleCopyBibtex = (id: string, bibtex: string) => {
@@ -172,7 +215,7 @@ function PortfolioMainContent() {
   const activeCvUrl =
     data.cv.uploadedPdfDataUrl ||
     data.cv.externalPdfUrl ||
-    '/assets/aistudio/CV_Gemini_870e22d1.pdf';
+    '/assets/aistudio/CV_SK_HUMAIN_AHMED.pdf';
 
   return (
     <div id="top" className="min-h-screen flex flex-col bg-[#FAFAFA] text-slate-900">
@@ -184,7 +227,7 @@ function PortfolioMainContent() {
             href="#top"
             onClick={(e) => {
               e.preventDefault();
-              setViewMode('home');
+              exitCmsView();
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             className="text-base sm:text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0"
@@ -197,7 +240,7 @@ function PortfolioMainContent() {
             {sec.showResearchInterestsSection !== false && (
               <a
                 href="#research"
-                onClick={() => setViewMode('home')}
+                onClick={() => exitCmsView()}
                 className="hover:text-slate-900 hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
               >
                 Research
@@ -206,7 +249,7 @@ function PortfolioMainContent() {
             {sec.showProjectsSection !== false && (
               <a
                 href="#projects"
-                onClick={() => setViewMode('home')}
+                onClick={() => exitCmsView()}
                 className="hover:text-slate-900 hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
               >
                 Projects
@@ -215,7 +258,7 @@ function PortfolioMainContent() {
             {isSimulationsSectionVisible && (
               <a
                 href="#simulations"
-                onClick={() => setViewMode('home')}
+                onClick={() => exitCmsView()}
                 className="hover:text-slate-900 hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
               >
                 Simulations
@@ -224,7 +267,7 @@ function PortfolioMainContent() {
             {sec.showPublicationsSection !== false && (
               <a
                 href="#publications"
-                onClick={() => setViewMode('home')}
+                onClick={() => exitCmsView()}
                 className="hover:text-slate-900 hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
               >
                 Publications
@@ -236,7 +279,7 @@ function PortfolioMainContent() {
               sec.showCvDownloadSection !== false) && (
               <a
                 href="#cv"
-                onClick={() => setViewMode('home')}
+                onClick={() => exitCmsView()}
                 className="hover:text-slate-900 hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
               >
                 CV &amp; Background
@@ -244,21 +287,50 @@ function PortfolioMainContent() {
             )}
           </nav>
 
-          {/* Zone 3: 1 primary action button */}
-          <div className="flex items-center shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                if (viewMode === 'cms') {
-                  setViewMode('home');
-                } else {
-                  openCmsForProject(null);
-                }
-              }}
-              className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              {viewMode === 'cms' ? 'Exit Admin CMS' : 'Admin CMS'}
-            </button>
+          {/* Zone 3: Public visitors see "Download CV (PDF)"; Authenticated Admin sees Admin CMS controls */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {isAdminAuthenticated || viewMode === 'cms' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (viewMode === 'cms') {
+                      exitCmsView();
+                    } else {
+                      openCmsForProject(null);
+                    }
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  {viewMode === 'cms' ? 'Live Site Preview' : 'Admin CMS'}
+                </button>
+                {isAdminAuthenticated && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logoutAdmin();
+                      exitCmsView();
+                    }}
+                    title="Lock Admin Session"
+                    className="inline-flex items-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    Lock
+                  </button>
+                )}
+              </>
+            ) : (
+              <a
+                href={activeCvUrl}
+                download={data.cv.fileName || 'CV_SK_HUMAIN_AHMED.pdf'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download CV (PDF)
+              </a>
+            )}
           </div>
         </div>
       </header>
@@ -267,7 +339,7 @@ function PortfolioMainContent() {
         {viewMode === 'cms' && (
           <AdminCmsDashboard
             initialEditProjectId={cmsEditProjectId}
-            onExitCms={() => setViewMode('home')}
+            onExitCms={() => exitCmsView()}
             onPreviewProject={(slug) => openProjectDetail(slug)}
           />
         )}
@@ -275,10 +347,11 @@ function PortfolioMainContent() {
         {viewMode === 'project-detail' && currentDetailProject && (
           <ProjectDetailView
             project={currentDetailProject}
-            onBack={() => setViewMode('home')}
+            onBack={() => exitCmsView()}
             onEditProjectInCms={(id) => openCmsForProject(id)}
             allProjects={data.projects}
             onSelectProject={(slug) => openProjectDetail(slug)}
+            isAdminAuthenticated={isAdminAuthenticated}
           />
         )}
 
@@ -337,7 +410,7 @@ function PortfolioMainContent() {
 
                     <a
                       href={activeCvUrl}
-                      download={data.cv.fileName || 'Sk_Humain_Ahmed_CV.pdf'}
+                      download={data.cv.fileName || 'CV_SK_HUMAIN_AHMED.pdf'}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-slate-700 hover:text-slate-900 whitespace-nowrap"
@@ -407,351 +480,364 @@ function PortfolioMainContent() {
 
             {/* SECTION 2: ABOUT ME & BIOGRAPHY */}
             {sec.showAboutSection !== false && (
-            <section id="about" className="py-16 bg-white border-y border-slate-200">
-              <div className="max-w-[1280px] mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12">
-                <div className="lg:col-span-4 space-y-6">
-                  <div>
-                    <div className="text-xs font-mono text-slate-500">
-                      01. Researcher Profile &amp; Credentials
-                    </div>
-                    <h2 className="text-2xl font-bold text-slate-900 mt-1">
-                      {sec.aboutSectionTitle || `About ${data.profile.fullName}`}
-                    </h2>
-                  </div>
-
-                  <div className="p-5 bg-[#FAFAFA] border border-slate-200 rounded-xl space-y-3">
-                    <div className="text-xs font-mono uppercase tracking-wider text-slate-500">
-                      Doctoral Research Vision
-                    </div>
-                    <p className="text-sm font-serif-editorial italic text-slate-800 leading-relaxed">
-                      “{data.profile.researchVisionStatement}”
-                    </p>
-                  </div>
-
-                  <div className="space-y-2.5 text-xs text-slate-700 font-mono">
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <a
-                        href={`mailto:${data.profile.email}`}
-                        className="text-blue-700 hover:underline"
-                      >
-                        {data.profile.email}
-                      </a>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>+880-1756734776</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>Rajshahi, Bangladesh</span>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 text-xs font-mono">
-                    <div className="text-slate-500">Academic &amp; Test Metrics</div>
-                    <div className="text-slate-900 font-semibold">
-                      BUET B.Sc. ME · CGPA: 3.47/4.00
-                    </div>
-                    <div className="text-slate-700">
-                      Senior Year Trend: L4/T1: 3.71 · L4/T2: 3.96
-                    </div>
-                    <div className="text-blue-700">
-                      GRE: 311 (Q: 160, V: 151, AWA: 3.5) · TOEFL: 97
-                    </div>
-                  </div>
-                </div>
-
-                <div className="lg:col-span-8 space-y-5">
-                  {data.profile.aboutBiography.map((paragraph, index) => (
-                    <p
-                      key={index}
-                      className="text-base text-slate-700 leading-relaxed"
-                    >
-                      {paragraph}
-                    </p>
-                  ))}
-
-                  <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <section id="about" className="py-16 bg-white border-y border-slate-200">
+                <div className="max-w-[1280px] mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12">
+                  <div className="lg:col-span-4 space-y-6">
                     <div>
                       <div className="text-xs font-mono text-slate-500">
-                        Target Doctoral Programs
+                        01. Researcher Profile &amp; Credentials
                       </div>
-                      <div className="text-sm font-semibold text-slate-900 mt-0.5">
-                        {data.profile.targetDepartments}
+                      <h2 className="text-2xl font-bold text-slate-900 mt-1">
+                        {sec.aboutSectionTitle || `About ${data.profile.fullName}`}
+                      </h2>
+                    </div>
+
+                    <div className="p-5 bg-[#FAFAFA] border border-slate-200 rounded-xl space-y-3">
+                      <div className="text-xs font-mono uppercase tracking-wider text-slate-500">
+                        Doctoral Research Vision
+                      </div>
+                      <p className="text-sm font-serif-editorial italic text-slate-800 leading-relaxed">
+                        “{data.profile.researchVisionStatement}”
+                      </p>
+                    </div>
+
+                    <div className="space-y-2.5 text-xs text-slate-700 font-mono">
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <a
+                          href={`mailto:${data.profile.email}`}
+                          className="text-blue-700 hover:underline"
+                        >
+                          {data.profile.email}
+                        </a>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>+880-1756734776</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>Rajshahi, Bangladesh</span>
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => openCmsForProject(null)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-800 whitespace-nowrap cursor-pointer"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      Edit Biography in CMS
-                    </button>
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 text-xs font-mono">
+                      <div className="text-slate-500">Academic &amp; Test Metrics</div>
+                      <div className="text-slate-900 font-semibold">
+                        BUET B.Sc. ME · CGPA: 3.47/4.00
+                      </div>
+                      <div className="text-slate-700">
+                        Senior Year Trend: L4/T1: 3.71 · L4/T2: 3.96
+                      </div>
+                      <div className="text-blue-700">
+                        GRE: 311 (Q: 160, V: 151, AWA: 3.5) · TOEFL: 97
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-8 space-y-5">
+                    {data.profile.aboutBiography.map((paragraph, index) => (
+                      <p
+                        key={index}
+                        className="text-base text-slate-700 leading-relaxed"
+                      >
+                        {paragraph}
+                      </p>
+                    ))}
+
+                    <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="text-xs font-mono text-slate-500">
+                          Target Doctoral Programs
+                        </div>
+                        <div className="text-sm font-semibold text-slate-900 mt-0.5">
+                          {data.profile.targetDepartments}
+                        </div>
+                      </div>
+
+                      {isAdminAuthenticated && (
+                        <button
+                          type="button"
+                          onClick={() => openCmsForProject(null)}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-800 whitespace-nowrap cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          Edit Biography in CMS
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </section>
+              </section>
             )}
 
             {/* SECTION 3: RESEARCH INTERESTS & MATHEMATICAL FORMULATIONS */}
             {sec.showResearchInterestsSection !== false && data.researchInterests.length > 0 && (
-            <section id="research" className="py-16 max-w-[1280px] mx-auto px-6">
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
-                <div>
-                  <div className="text-xs font-mono text-slate-500">
-                    02. Theoretical Foundations &amp; Research Directions
+              <section id="research" className="py-16 max-w-[1280px] mx-auto px-6">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
+                  <div>
+                    <div className="text-xs font-mono text-slate-500">
+                      02. Theoretical Foundations &amp; Research Directions
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">
+                      {sec.researchInterestsTitle || 'Research Interests'}
+                    </h2>
                   </div>
-                  <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">
-                    {sec.researchInterestsTitle || 'Research Interests'}
-                  </h2>
+                  <p className="text-sm text-slate-600 max-w-md">
+                    {sec.researchInterestsSubtitle ||
+                      'Combining sparse system identification, physics-informed machine learning, and reinforcement learning for dynamical and cyber-physical systems.'}
+                  </p>
                 </div>
-                <p className="text-sm text-slate-600 max-w-md">
-                  {sec.researchInterestsSubtitle ||
-                    'Combining sparse system identification, physics-informed machine learning, and reinforcement learning for dynamical and cyber-physical systems.'}
-                </p>
-              </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {data.researchInterests.map((pillar) => (
-                  <div
-                    key={pillar.id}
-                    className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="text-xs font-mono text-blue-700 font-semibold">
-                        {pillar.index}. {pillar.subtitle}
-                      </div>
-                      <h3 className="text-xl font-bold text-slate-900 mt-1.5">
-                        {pillar.title}
-                      </h3>
-                      <p className="mt-3 text-sm text-slate-600 leading-relaxed">
-                        {pillar.description}
-                      </p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {data.researchInterests.map((pillar) => (
+                    <div
+                      key={pillar.id}
+                      className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="text-xs font-mono text-blue-700 font-semibold">
+                          {pillar.index}. {pillar.subtitle}
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-900 mt-1.5">
+                          {pillar.title}
+                        </h3>
+                        <p className="mt-3 text-sm text-slate-600 leading-relaxed">
+                          {pillar.description}
+                        </p>
 
-                      {pillar.coreEquationLatex && (
-                        <div className="mt-5 p-4 bg-[#FAFAFA] border border-slate-200 rounded-lg overflow-x-auto">
-                          <div className="text-[11px] font-mono text-slate-400 mb-1">
-                            {pillar.coreEquationCaption}
+                        {pillar.coreEquationLatex && (
+                          <div className="mt-5 p-4 bg-[#FAFAFA] border border-slate-200 rounded-lg overflow-x-auto">
+                            <div className="text-[11px] font-mono text-slate-400 mb-1">
+                              {pillar.coreEquationCaption}
+                            </div>
+                            <MathEquation latex={pillar.coreEquationLatex} block />
                           </div>
-                          <MathEquation latex={pillar.coreEquationLatex} block />
+                        )}
+                      </div>
+
+                      {pillar.keyTopics.length > 0 && (
+                        <div className="mt-5 pt-4 border-t border-slate-100 text-xs font-mono text-slate-600 leading-relaxed">
+                          <span className="text-slate-400 mr-1.5">Key Focus:</span>
+                          {pillar.keyTopics.join(' · ')}
                         </div>
                       )}
                     </div>
-
-                    {pillar.keyTopics.length > 0 && (
-                      <div className="mt-5 pt-4 border-t border-slate-100 text-xs font-mono text-slate-600 leading-relaxed">
-                        <span className="text-slate-400 mr-1.5">Key Focus:</span>
-                        {pillar.keyTopics.join(' · ')}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
+                  ))}
+                </div>
+              </section>
             )}
 
             {/* SECTION 4: DETAILED ENGINEERING & RESEARCH PROJECTS SHOWCASE */}
             {sec.showProjectsSection !== false && (
-            <section
-              id="projects"
-              className="py-16 bg-white border-y border-slate-200"
-            >
-              <div className="max-w-[1280px] mx-auto px-6">
-                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
-                  <div>
-                    <div className="text-xs font-mono text-slate-500">
-                      03. Technical Monographs · Problems Solved, Methodology, Equations &amp; Results
+              <section
+                id="projects"
+                className="py-16 bg-white border-y border-slate-200"
+              >
+                <div className="max-w-[1280px] mx-auto px-6">
+                  <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
+                    <div>
+                      <div className="text-xs font-mono text-slate-500">
+                        03. Technical Monographs · Problems Solved, Methodology, Equations &amp; Results
+                      </div>
+                      <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">
+                        {sec.projectsSectionTitle ||
+                          'Research & Engineering Projects Showcase'}
+                      </h2>
+                      <p className="text-sm text-slate-600 mt-1.5 max-w-2xl">
+                        {sec.projectsSectionSubtitle ||
+                          'Click any project below to view its dedicated technical page featuring problem formulation, methodology, governing equations, system block diagrams, performance graphs, and interactive simulations.'}
+                      </p>
                     </div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">
-                      {sec.projectsSectionTitle ||
-                        'Research & Engineering Projects Showcase'}
-                    </h2>
-                    <p className="text-sm text-slate-600 mt-1.5 max-w-2xl">
-                      {sec.projectsSectionSubtitle ||
-                        'Click any project below to view its dedicated technical page featuring problem formulation, methodology, governing equations, system block diagrams, performance graphs, and interactive simulations.'}
-                    </p>
+
+                    {/* Dynamic Category Filter Segmented Control */}
+                    {sec.showCategoryFilterBar !== false &&
+                      availableCategories.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 border border-slate-200 rounded-lg self-start lg:self-auto">
+                          {(['All', ...availableCategories] as const).map((cat) => (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => setSelectedCategory(cat)}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                                effectiveSelectedCategory === cat
+                                  ? 'bg-white text-slate-900 shadow-xs'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              {cat === 'All' ? 'All Projects' : cat}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                   </div>
 
-                  {/* Dynamic Category Filter Segmented Control */}
-                  {sec.showCategoryFilterBar !== false &&
-                    availableCategories.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 border border-slate-200 rounded-lg self-start lg:self-auto">
-                        {(['All', ...availableCategories] as const).map((cat) => (
-                          <button
-                            key={cat}
-                            type="button"
-                            onClick={() => setSelectedCategory(cat)}
-                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                              effectiveSelectedCategory === cat
-                                ? 'bg-white text-slate-900 shadow-xs'
-                                : 'text-slate-600 hover:text-slate-900'
-                            }`}
-                          >
-                            {cat === 'All' ? 'All Projects' : cat}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                </div>
-
-                {/* Detailed Project Cards */}
-                <div className="space-y-10">
-                  {filteredProjects.map((project, index) => (
-                    <div
-                      key={project.id}
-                      className="bg-white border border-slate-200 rounded-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 items-stretch shadow-2xs"
-                    >
-                      {/* Left Visual & Quick Action Column */}
+                  {/* Detailed Project Cards */}
+                  <div className="space-y-10">
+                    {filteredProjects.map((project, index) => (
                       <div
-                        onClick={() => openProjectDetail(project.slug)}
-                        className="lg:col-span-5 relative cursor-pointer group overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-900 flex flex-col justify-between"
+                        key={project.id}
+                        className="bg-white border border-slate-200 rounded-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 items-stretch shadow-2xs"
                       >
-                        <ResilientImage
-                          src={project.heroImage}
-                          alt={project.title}
-                          className="w-full h-64 lg:h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
-                        />
-                        <div className="p-4 bg-slate-900/95 text-slate-200 border-t border-slate-800 flex items-center justify-between text-xs font-mono">
-                          <span>
-                            Project 0{index + 1} · {project.period}
-                          </span>
-                          <span className="text-blue-300 group-hover:underline">
-                            Open Full Monograph, Graphs &amp; Math →
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Right Structured Breakdown: Problem, Methodology, Equation & Critical Findings */}
-                      <div className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between">
-                        <div>
-                          {/* Unboxed Metadata */}
-                          <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-500">
-                            <span className="text-blue-700 font-semibold">
-                              {project.category}
+                        {/* Left Visual & Quick Action Column */}
+                        <div
+                          onClick={() => openProjectDetail(project.slug)}
+                          className="lg:col-span-5 relative cursor-pointer group overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-900 flex flex-col justify-between"
+                        >
+                          <ResilientImage
+                            src={project.heroImage}
+                            alt={project.title}
+                            className="w-full h-64 lg:h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
+                          />
+                          <div className="p-4 bg-slate-900/95 text-slate-200 border-t border-slate-800 flex items-center justify-between text-xs font-mono">
+                            <span>
+                              Project 0{index + 1} · {project.period}
                             </span>
-                            <span aria-hidden="true">·</span>
-                            <span>{project.role}</span>
-                            <span aria-hidden="true">·</span>
-                            <span>{project.laboratoryOrInstitution}</span>
+                            <span className="text-blue-300 group-hover:underline">
+                              Open Full Monograph, Graphs &amp; Math →
+                            </span>
                           </div>
-
-                          <h3
-                            onClick={() => openProjectDetail(project.slug)}
-                            className="mt-2 text-xl sm:text-2xl font-bold text-slate-900 hover:text-blue-700 transition-colors cursor-pointer leading-snug"
-                          >
-                            {project.title}
-                          </h3>
-
-                          <p className="mt-3 text-sm text-slate-700 leading-relaxed">
-                            {project.executiveSummary}
-                          </p>
-
-                          {/* Structured Problem & Methodology Mini-Grid */}
-                          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-                            <div>
-                              <div className="text-xs font-semibold text-slate-900 mb-1">
-                                Problem Addressed
-                              </div>
-                              <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
-                                {project.problemStatement}
-                              </p>
-                            </div>
-                            <div>
-                              <div className="text-xs font-semibold text-slate-900 mb-1">
-                                Methodology &amp; Results
-                              </div>
-                              <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
-                                {project.experimentalValidation ||
-                                  project.methodologyArchitecture}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Primary Governing Equation Preview */}
-                          {project.equations[0] && (
-                            <div className="mt-4 p-3.5 bg-[#FAFAFA] border border-slate-200 rounded-lg overflow-x-auto">
-                              <div className="text-[11px] font-mono text-slate-400 mb-1">
-                                Mathematical Formulation ({project.equations[0].title}):
-                              </div>
-                              <MathEquation
-                                latex={project.equations[0].latex}
-                                className="text-xs"
-                              />
-                            </div>
-                          )}
-
-                          {/* 4 Quantitative Critical Findings */}
-                          {project.simulationMetrics.keyFindings.length > 0 && (
-                            <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-100">
-                              {project.simulationMetrics.keyFindings.map((kf, i) => (
-                                <div key={i}>
-                                  <div className="text-[11px] text-slate-500 truncate">
-                                    {kf.label}
-                                  </div>
-                                  <div className="mt-0.5 flex items-baseline">
-                                    <span className="text-base font-mono font-bold text-slate-900 tabular-nums">
-                                      {kf.value}
-                                    </span>
-                                    <span className="text-[11px] font-mono text-slate-500 ml-1">
-                                      {kf.unit}
-                                    </span>
-                                  </div>
-                                  <div className="text-[10px] font-mono text-blue-700 truncate">
-                                    {kf.comparison}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
 
-                        {/* Footer Tools & Actions */}
-                        <div className="mt-6 pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4">
-                          <div className="text-xs font-mono text-slate-500">
-                            <span className="text-slate-800 font-semibold">Stack: </span>
-                            {project.hardwareAndSoftwareStack.join(' · ')}
+                        {/* Right Structured Breakdown: Problem, Methodology, Equation & Critical Findings */}
+                        <div className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between">
+                          <div>
+                            {/* Unboxed Metadata */}
+                            <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-500">
+                              <span className="text-blue-700 font-semibold">
+                                {project.category}
+                              </span>
+                              <span aria-hidden="true">·</span>
+                              <span>{project.role}</span>
+                              <span aria-hidden="true">·</span>
+                              <span>{project.laboratoryOrInstitution}</span>
+                            </div>
+
+                            <h3
+                              onClick={() => openProjectDetail(project.slug)}
+                              className="mt-2 text-xl sm:text-2xl font-bold text-slate-900 hover:text-blue-700 transition-colors cursor-pointer leading-snug"
+                            >
+                              {project.title}
+                            </h3>
+
+                            <p className="mt-3 text-sm text-slate-700 leading-relaxed">
+                              {project.executiveSummary}
+                            </p>
+
+                            {/* Structured Problem & Methodology Mini-Grid */}
+                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                              <div>
+                                <div className="text-xs font-semibold text-slate-900 mb-1">
+                                  Problem Addressed
+                                </div>
+                                <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
+                                  {project.problemStatement}
+                                </p>
+                              </div>
+                              <div>
+                                <div className="text-xs font-semibold text-slate-900 mb-1">
+                                  Methodology &amp; Results
+                                </div>
+                                <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
+                                  {project.experimentalValidation ||
+                                    project.methodologyArchitecture}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Primary Governing Equation Preview */}
+                            {project.equations[0] && (
+                              <div className="mt-4 p-3.5 bg-[#FAFAFA] border border-slate-200 rounded-lg overflow-x-auto">
+                                <div className="text-[11px] font-mono text-slate-400 mb-1">
+                                  Mathematical Formulation ({project.equations[0].title}):
+                                </div>
+                                <MathEquation
+                                  latex={project.equations[0].latex}
+                                  className="text-xs"
+                                />
+                              </div>
+                            )}
+
+                            {/* 4 Quantitative Critical Findings */}
+                            {project.simulationMetrics.keyFindings.length > 0 && (
+                              <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-100">
+                                {project.simulationMetrics.keyFindings.map((kf, i) => (
+                                  <div key={i}>
+                                    <div className="text-[11px] text-slate-500 truncate">
+                                      {kf.label}
+                                    </div>
+                                    <div className="mt-0.5 flex items-baseline">
+                                      <span className="text-base font-mono font-bold text-slate-900 tabular-nums">
+                                        {kf.value}
+                                      </span>
+                                      <span className="text-[11px] font-mono text-slate-500 ml-1">
+                                        {kf.unit}
+                                      </span>
+                                    </div>
+                                    <div className="text-[10px] font-mono text-blue-700 truncate">
+                                      {kf.comparison}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
 
-                          <div className="flex items-center gap-2.5">
-                            {isSimulationsSectionVisible &&
-                              project.liveDemoSimulationId &&
-                              project.liveDemoSimulationId !== 'none' &&
-                              enabledSimModules.some(
-                                (m) => m.id === project.liveDemoSimulationId
-                              ) && (
-                                <a
-                                  href="#simulations"
-                                  onClick={() =>
-                                    setActiveLabSim(
-                                      project.liveDemoSimulationId as SimulationMode
-                                    )
-                                  }
-                                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors whitespace-nowrap"
+                          {/* Footer Tools & Actions */}
+                          <div className="mt-6 pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                            <div className="text-xs font-mono text-slate-500">
+                              <span className="text-slate-800 font-semibold">Stack: </span>
+                              {project.hardwareAndSoftwareStack.join(' · ')}
+                            </div>
+
+                            <div className="flex items-center gap-2.5">
+                              {isAdminAuthenticated && (
+                                <button
+                                  type="button"
+                                  onClick={() => openCmsForProject(project.id)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
                                 >
-                                  <Sliders className="w-3.5 h-3.5" />
-                                  Interactive Sim
-                                </a>
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  Edit in CMS
+                                </button>
                               )}
 
-                            <button
-                              type="button"
-                              onClick={() => openProjectDetail(project.slug)}
-                              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                            >
-                              Full Technical Page &amp; Graphs
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </button>
+                              {isSimulationsSectionVisible &&
+                                project.liveDemoSimulationId &&
+                                project.liveDemoSimulationId !== 'none' &&
+                                enabledSimModules.some(
+                                  (m) => m.id === project.liveDemoSimulationId
+                                ) && (
+                                  <a
+                                    href="#simulations"
+                                    onClick={() =>
+                                      setActiveLabSim(
+                                        project.liveDemoSimulationId as SimulationMode
+                                      )
+                                    }
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors whitespace-nowrap"
+                                  >
+                                    <Sliders className="w-3.5 h-3.5" />
+                                    Interactive Sim
+                                  </a>
+                                )}
+
+                              <button
+                                type="button"
+                                onClick={() => openProjectDetail(project.slug)}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                Full Technical Page &amp; Graphs
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
             )}
 
             {/* SECTION 5: INTERACTIVE SCIENTIFIC DEMONSTRATIONS & SIMULATIONS */}
@@ -780,131 +866,133 @@ function PortfolioMainContent() {
 
             {/* SECTION 6: PUBLICATIONS & CONFERENCE PRESENTATIONS */}
             {sec.showPublicationsSection !== false && data.publications.length > 0 && (
-            <section
-              id="publications"
-              className="py-16 bg-white border-y border-slate-200"
-            >
-              <div className="max-w-[1280px] mx-auto px-6">
-                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
-                  <div>
-                    <div className="text-xs font-mono text-slate-500">
-                      05. Peer-Reviewed Conference Proceedings &amp; Presentations
+              <section
+                id="publications"
+                className="py-16 bg-white border-y border-slate-200"
+              >
+                <div className="max-w-[1280px] mx-auto px-6">
+                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
+                    <div>
+                      <div className="text-xs font-mono text-slate-500">
+                        05. Peer-Reviewed Conference Proceedings &amp; Presentations
+                      </div>
+                      <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">
+                        {sec.publicationsSectionTitle || 'Publications & Presentations'}
+                      </h2>
                     </div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">
-                      {sec.publicationsSectionTitle || 'Publications & Presentations'}
-                    </h2>
+
+                    {isAdminAuthenticated && (
+                      <button
+                        type="button"
+                        onClick={() => openCmsForProject(null)}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-800 cursor-pointer whitespace-nowrap"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        Manage Publications in CMS
+                      </button>
+                    )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => openCmsForProject(null)}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-800 cursor-pointer whitespace-nowrap"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    Manage Publications in CMS
-                  </button>
-                </div>
-
-                <div className="divide-y divide-slate-200 border-t border-b border-slate-200">
-                  {data.publications.map((pub, index) => (
-                    <div key={pub.id} className="py-6 flex flex-col gap-3">
-                      <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-500">
-                        <span className="font-semibold text-slate-900">
-                          [{index + 1}]
-                        </span>
-                        <span>{pub.year}</span>
-                        <span aria-hidden="true">·</span>
-                        <span className="text-blue-700 font-medium">
-                          {pub.researchDomain}
-                        </span>
-                      </div>
-
-                      <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                        {pub.title}
-                      </h3>
-
-                      <div className="text-sm font-medium text-slate-800">
-                        {pub.authors}
-                      </div>
-
-                      <div className="text-xs font-serif-editorial italic text-slate-600">
-                        {pub.venue}
-                      </div>
-
-                      <p className="text-xs text-slate-600 leading-relaxed max-w-4xl">
-                        {pub.abstract}
-                      </p>
-
-                      <div className="pt-2 flex flex-wrap items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedBibtexId(
-                              expandedBibtexId === pub.id ? null : pub.id
-                            )
-                          }
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
-                        >
-                          <Terminal className="w-3.5 h-3.5" />
-                          {expandedBibtexId === pub.id ? 'Hide BibTeX' : 'BibTeX Citation'}
-                        </button>
-
-                        {pub.year === '2026' && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openProjectDetail(
-                                'hybrid-ml-predictive-maintenance-smart-manufacturing'
-                              )
-                            }
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
-                          >
-                            View Technical Project Page →
-                          </button>
-                        )}
-
-                        {pub.year === '2016' && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openProjectDetail(
-                                'heat-transfer-models-si-engine-undergraduate-thesis'
-                              )
-                            }
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
-                          >
-                            View Thesis Monograph &amp; Simulation →
-                          </button>
-                        )}
-                      </div>
-
-                      {expandedBibtexId === pub.id && (
-                        <div className="mt-2 p-4 bg-slate-900 text-slate-100 rounded-lg font-mono text-xs relative">
-                          <button
-                            type="button"
-                            onClick={() => handleCopyBibtex(pub.id, pub.bibtex)}
-                            className="absolute top-3 right-3 inline-flex items-center gap-1 px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 rounded cursor-pointer"
-                          >
-                            {copiedBibtexId === pub.id ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-400" />
-                                Copied
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                Copy BibTeX
-                              </>
-                            )}
-                          </button>
-                          <pre className="overflow-x-auto">{pub.bibtex}</pre>
+                  <div className="divide-y divide-slate-200 border-t border-b border-slate-200">
+                    {data.publications.map((pub, index) => (
+                      <div key={pub.id} className="py-6 flex flex-col gap-3">
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-500">
+                          <span className="font-semibold text-slate-900">
+                            [{index + 1}]
+                          </span>
+                          <span>{pub.year}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="text-blue-700 font-medium">
+                            {pub.researchDomain}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  ))}
+
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                          {pub.title}
+                        </h3>
+
+                        <div className="text-sm font-medium text-slate-800">
+                          {pub.authors}
+                        </div>
+
+                        <div className="text-xs font-serif-editorial italic text-slate-600">
+                          {pub.venue}
+                        </div>
+
+                        <p className="text-xs text-slate-600 leading-relaxed max-w-4xl">
+                          {pub.abstract}
+                        </p>
+
+                        <div className="pt-2 flex flex-wrap items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedBibtexId(
+                                expandedBibtexId === pub.id ? null : pub.id
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+                          >
+                            <Terminal className="w-3.5 h-3.5" />
+                            {expandedBibtexId === pub.id ? 'Hide BibTeX' : 'BibTeX Citation'}
+                          </button>
+
+                          {pub.year === '2026' && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openProjectDetail(
+                                  'hybrid-ml-predictive-maintenance-smart-manufacturing'
+                                )
+                              }
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
+                            >
+                              View Technical Project Page →
+                            </button>
+                          )}
+
+                          {pub.year === '2016' && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openProjectDetail(
+                                  'heat-transfer-models-si-engine-undergraduate-thesis'
+                                )
+                              }
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
+                            >
+                              View Thesis Monograph &amp; Simulation →
+                            </button>
+                          )}
+                        </div>
+
+                        {expandedBibtexId === pub.id && (
+                          <div className="mt-2 p-4 bg-slate-900 text-slate-100 rounded-lg font-mono text-xs relative">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyBibtex(pub.id, pub.bibtex)}
+                              className="absolute top-3 right-3 inline-flex items-center gap-1 px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 rounded cursor-pointer"
+                            >
+                              {copiedBibtexId === pub.id ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  Copied
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  Copy BibTeX
+                                </>
+                              )}
+                            </button>
+                            <pre className="overflow-x-auto">{pub.bibtex}</pre>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
             )}
 
             {/* SECTION 7: EDUCATION, PROFESSIONAL EXPERIENCE, SKILLS, CERTIFICATIONS & CV */}
@@ -1125,7 +1213,7 @@ function PortfolioMainContent() {
 
                       <a
                         href={activeCvUrl}
-                        download={data.cv.fileName || 'Sk_Humain_Ahmed_CV.pdf'}
+                        download={data.cv.fileName || 'CV_SK_HUMAIN_AHMED.pdf'}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors whitespace-nowrap"
@@ -1134,13 +1222,15 @@ function PortfolioMainContent() {
                         Download CV PDF
                       </a>
 
-                      <button
-                        type="button"
-                        onClick={() => openCmsForProject(null)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium text-slate-300 hover:text-white border border-slate-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                      >
-                        Update in CMS
-                      </button>
+                      {isAdminAuthenticated && (
+                        <button
+                          type="button"
+                          onClick={() => openCmsForProject(null)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium text-slate-300 hover:text-white border border-slate-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                        >
+                          Update in CMS
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -1162,18 +1252,25 @@ function PortfolioMainContent() {
 
       <footer className="bg-white border-t border-slate-200 py-8 px-6">
         <div className="max-w-[1280px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div>
+          <div
+            onDoubleClick={() => openCmsForProject(null)}
+            className="select-none"
+          >
             © {new Date().getFullYear()} {data.profile.fullName} · {data.profile.email} · +880-1756734776 · Rajshahi, Bangladesh
           </div>
           <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => openCmsForProject(null)}
-              className="hover:text-slate-900 underline underline-offset-4 cursor-pointer"
-            >
-              Admin CMS &amp; $0 Hosting Guide
-            </button>
-            <span>·</span>
+            {isAdminAuthenticated && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => openCmsForProject(null)}
+                  className="text-blue-700 hover:text-blue-900 font-medium underline underline-offset-4 cursor-pointer"
+                >
+                  Open Admin CMS
+                </button>
+                <span>·</span>
+              </>
+            )}
             <a href="#top" className="hover:text-slate-900">
               Back to Top ↑
             </a>

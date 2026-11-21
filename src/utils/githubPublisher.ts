@@ -30,6 +30,7 @@ export interface GitHubWorkflowStatus {
 
 const CONFIG_STORAGE_KEY = 'phd_portfolio_github_sync_config_v1';
 const SESSION_TOKEN_KEY = 'phd_portfolio_github_pat_session_v1';
+export const LAST_GH_COMMIT_TS_KEY = 'phd_portfolio_last_gh_commit_ts_v1';
 
 export function loadGitHubSyncConfig(): GitHubSyncConfig {
   try {
@@ -38,23 +39,27 @@ export function loadGitHubSyncConfig(): GitHubSyncConfig {
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
-        owner: parsed.owner || '',
-        repo: parsed.repo || '',
+        owner: parsed.owner || 'humain93',
+        repo: parsed.repo || 'humain93.github.io',
         branch: parsed.branch || 'main',
-        token: parsed.rememberTokenInLocalStorage ? parsed.token || '' : sessionToken,
-        rememberTokenInLocalStorage: Boolean(parsed.rememberTokenInLocalStorage),
-        autoPublishOnSave: parsed.autoPublishOnSave !== undefined ? Boolean(parsed.autoPublishOnSave) : true,
+        token: parsed.token || sessionToken || '',
+        rememberTokenInLocalStorage:
+          parsed.rememberTokenInLocalStorage !== undefined
+            ? Boolean(parsed.rememberTokenInLocalStorage)
+            : true,
+        autoPublishOnSave:
+          parsed.autoPublishOnSave !== undefined ? Boolean(parsed.autoPublishOnSave) : true,
       };
     }
   } catch {
     // ignore storage errors
   }
   return {
-    owner: '',
-    repo: '',
+    owner: 'humain93',
+    repo: 'humain93.github.io',
     branch: 'main',
     token: '',
-    rememberTokenInLocalStorage: false,
+    rememberTokenInLocalStorage: true,
     autoPublishOnSave: true,
   };
 }
@@ -74,7 +79,7 @@ export function saveGitHubSyncConfig(config: GitHubSyncConfig): void {
         CONFIG_STORAGE_KEY,
         JSON.stringify({
           ...config,
-          token: '', // Never store token in localStorage unless explicitly opted in
+          token: '',
         })
       );
     }
@@ -161,18 +166,23 @@ export async function verifyGitHubRepoConnection(config: GitHubSyncConfig): Prom
   if (!owner || !repo || !token) {
     return {
       ok: false,
-      message: 'Please provide your GitHub username/owner, repository name, and Personal Access Token.',
+      message:
+        'Please provide your GitHub username/owner, repository name, and Personal Access Token.',
     };
   }
 
   try {
-    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}?t=${Date.now()}`, {
       method: 'GET',
       headers: getHeaders(token),
+      cache: 'no-store',
     });
 
     if (res.status === 401) {
-      return { ok: false, message: 'Authentication failed (401): Invalid or expired GitHub Personal Access Token.' };
+      return {
+        ok: false,
+        message: 'Authentication failed (401): Invalid or expired GitHub Personal Access Token.',
+      };
     }
     if (res.status === 404) {
       return {
@@ -216,6 +226,32 @@ export async function verifyGitHubRepoConnection(config: GitHubSyncConfig): Prom
   }
 }
 
+async function fetchCurrentFileSha(
+  apiUrl: string,
+  branch: string,
+  token: string
+): Promise<string | undefined> {
+  try {
+    const getRes = await fetch(
+      `${apiUrl}?ref=${encodeURIComponent(branch)}&t=${Date.now()}`,
+      {
+        method: 'GET',
+        headers: getHeaders(token),
+        cache: 'no-store',
+      }
+    );
+    if (getRes.ok) {
+      const fileMeta = await getRes.json();
+      if (fileMeta && fileMeta.sha) {
+        return fileMeta.sha;
+      }
+    }
+  } catch {
+    // File may not exist yet
+  }
+  return undefined;
+}
+
 async function upsertRepoFile(
   config: GitHubSyncConfig,
   filePath: string,
@@ -229,40 +265,39 @@ async function upsertRepoFile(
 
   const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
 
-  // 1. Check if file already exists on the branch to get its current blob SHA
-  let existingSha: string | undefined;
-  try {
-    const getRes = await fetch(`${apiUrl}?ref=${encodeURIComponent(branch)}`, {
-      method: 'GET',
-      headers: getHeaders(token),
-    });
-    if (getRes.ok) {
-      const fileMeta = await getRes.json();
-      if (fileMeta && fileMeta.sha) {
-        existingSha = fileMeta.sha;
-      }
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const existingSha = await fetchCurrentFileSha(apiUrl, branch, token);
+
+    const bodyPayload: Record<string, string> = {
+      message: commitMessage,
+      content: base64Content,
+      branch,
+    };
+    if (existingSha) {
+      bodyPayload.sha = existingSha;
     }
-  } catch {
-    // File may not exist yet, proceed with creation
-  }
 
-  // 2. PUT updated or new file content
-  const bodyPayload: Record<string, string> = {
-    message: commitMessage,
-    content: base64Content,
-    branch,
-  };
-  if (existingSha) {
-    bodyPayload.sha = existingSha;
-  }
+    const putRes = await fetch(apiUrl, {
+      method: 'PUT',
+      headers: getHeaders(token),
+      body: JSON.stringify(bodyPayload),
+    });
 
-  const putRes = await fetch(apiUrl, {
-    method: 'PUT',
-    headers: getHeaders(token),
-    body: JSON.stringify(bodyPayload),
-  });
+    if (putRes.ok) {
+      const resultJson = await putRes.json();
+      return {
+        ok: true,
+        commitSha: resultJson?.commit?.sha,
+        commitUrl: resultJson?.commit?.html_url,
+      };
+    }
 
-  if (!putRes.ok) {
+    // Retry once on 409 SHA conflict
+    if (putRes.status === 409 && attempt === 1) {
+      await new Promise((r) => setTimeout(r, 400));
+      continue;
+    }
+
     let errDetail = `${putRes.status} ${putRes.statusText}`;
     try {
       const errJson = await putRes.json();
@@ -275,22 +310,18 @@ async function upsertRepoFile(
     return { ok: false, error: `Failed to commit ${filePath}: ${errDetail}` };
   }
 
-  const resultJson = await putRes.json();
-  return {
-    ok: true,
-    commitSha: resultJson?.commit?.sha,
-    commitUrl: resultJson?.commit?.html_url,
-  };
+  return { ok: false, error: `Failed to commit ${filePath} after retry.` };
 }
 
 /**
  * Commits the updated portfolio data directly to `src/data/defaultPortfolioData.ts`
  * and `public/data/portfolio.json` in the user's GitHub repository, automatically
  * triggering the GitHub Actions build & GitHub Pages deployment.
+ * Also extracts any embedded base64 CV PDF to `public/assets/uploads/` so JSON/TS files stay lean.
  */
 export async function publishPortfolioToGitHub(
   config: GitHubSyncConfig,
-  data: PortfolioDatabase,
+  rawData: PortfolioDatabase,
   customCommitMessage?: string
 ): Promise<GitHubPublishResult> {
   const owner = config.owner.trim();
@@ -309,14 +340,40 @@ export async function publishPortfolioToGitHub(
   const commitMessage =
     customCommitMessage?.trim() || `CMS Publish: Update research portfolio content (${timestamp})`;
 
-  // Format TypeScript module content
-  const tsModuleContent = `import { PortfolioDatabase } from '../types/portfolio';\n\nexport const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = ${JSON.stringify(
-    data,
-    null,
-    2
-  )};\n`;
+  // Clone data so we can extract any base64 CV PDF into a real repo file before committing JSON/TS
+  const data: PortfolioDatabase = JSON.parse(JSON.stringify(rawData));
 
   try {
+    if (
+      data.cv &&
+      typeof data.cv.uploadedPdfDataUrl === 'string' &&
+      data.cv.uploadedPdfDataUrl.startsWith('data:application/pdf;base64,')
+    ) {
+      const pdfBase64 = data.cv.uploadedPdfDataUrl.replace(/^data:application\/pdf;base64,/, '');
+      const safePdfName = (data.cv.fileName || 'CV_SK_HUMAIN_AHMED.pdf').replace(
+        /[^a-zA-Z0-9._-]/g,
+        '_'
+      );
+      const pdfRepoPath = `public/assets/uploads/${safePdfName}`;
+      const pdfRes = await upsertRepoFile(
+        config,
+        pdfRepoPath,
+        pdfBase64,
+        `CMS Upload CV PDF: ${safePdfName}`
+      );
+      if (pdfRes.ok) {
+        data.cv.externalPdfUrl = `/assets/uploads/${safePdfName}`;
+        data.cv.uploadedPdfDataUrl = '';
+      }
+    }
+
+    // Format TypeScript module content
+    const tsModuleContent = `import { PortfolioDatabase } from '../types/portfolio';\n\nexport const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = ${JSON.stringify(
+      data,
+      null,
+      2
+    )};\n`;
+
     // 1. Commit src/data/defaultPortfolioData.ts (drives the Vite static build in GitHub Actions)
     const tsResult = await upsertRepoFile(
       config,
@@ -328,29 +385,40 @@ export async function publishPortfolioToGitHub(
     if (!tsResult.ok) {
       return {
         ok: false,
-        message: tsResult.error || 'Failed to commit src/data/defaultPortfolioData.ts to GitHub.',
+        message:
+          tsResult.error || 'Failed to commit src/data/defaultPortfolioData.ts to GitHub.',
       };
     }
 
-    // 2. Also commit public/data/portfolio.json so runtime static fetches have the exact JSON snapshot
+    // 2. Commit public/data/portfolio.json so runtime static fetches have the exact JSON snapshot
     const jsonContent = JSON.stringify(data, null, 2);
-    await upsertRepoFile(
+    const jsonResult = await upsertRepoFile(
       config,
       'public/data/portfolio.json',
       encodeUtf8ToBase64(jsonContent),
       `${commitMessage} [JSON snapshot]`
     );
 
+    try {
+      localStorage.setItem(LAST_GH_COMMIT_TS_KEY, String(Date.now()));
+    } catch {
+      // ignore
+    }
+
     const pagesUrl = computeGitHubPagesUrl(owner, repo);
     const actionsUrl = `https://github.com/${owner}/${repo}/actions`;
+    const activeSha = jsonResult.commitSha || tsResult.commitSha;
 
     return {
       ok: true,
-      commitSha: tsResult.commitSha,
-      commitUrl: tsResult.commitUrl || `https://github.com/${owner}/${repo}/commits/${branch}`,
+      commitSha: activeSha,
+      commitUrl:
+        jsonResult.commitUrl ||
+        tsResult.commitUrl ||
+        `https://github.com/${owner}/${repo}/commits/${branch}`,
       pagesUrl,
       actionsUrl,
-      message: `Committed to ${owner}/${repo}@${branch} (${tsResult.commitSha?.slice(0, 7) || 'HEAD'}). GitHub Actions is now building & deploying to GitHub Pages!`,
+      message: `Committed to ${owner}/${repo}@${branch} (${activeSha?.slice(0, 7) || 'HEAD'}). GitHub Actions is now building & deploying to GitHub Pages!`,
     };
   } catch (err) {
     return {
@@ -361,20 +429,17 @@ export async function publishPortfolioToGitHub(
 }
 
 /**
- * Uploads an image or PDF file directly to `public/assets/uploads/<filename>` in the GitHub repository
- * so the user never has to manually copy files into their repo.
+ * Uploads an image or PDF file to both the local dev server (`/api/upload-asset`)
+ * and `public/assets/uploads/<filename>` in the GitHub repository (if PAT is configured).
  */
 export async function uploadAssetFileToGitHub(
   config: GitHubSyncConfig,
-  file: File
+  file: File,
+  adminPasscode?: string
 ): Promise<{ ok: boolean; assetPath?: string; message: string }> {
   const owner = config.owner.trim();
   const repo = config.repo.trim();
   const token = config.token.trim();
-
-  if (!owner || !repo || !token) {
-    return { ok: false, message: 'GitHub sync not configured.' };
-  }
 
   try {
     const buffer = await file.arrayBuffer();
@@ -382,27 +447,91 @@ export async function uploadAssetFileToGitHub(
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const targetFileName = `${Date.now()}_${safeName}`;
     const repoPath = `public/assets/uploads/${targetFileName}`;
+    const publicAssetPath = `/assets/uploads/${targetFileName}`;
 
-    const res = await upsertRepoFile(
-      config,
-      repoPath,
-      base64Data,
-      `CMS Asset Upload: ${safeName}`
-    );
+    // 1. Save to local server `/public/assets/uploads/` if running in dev/Express mode
+    let savedLocally = false;
+    try {
+      const mime = file.type || (safeName.endsWith('.pdf') ? 'application/pdf' : 'image/png');
+      const localRes = await fetch('/api/upload-asset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-passcode': adminPasscode || 'phd2027',
+        },
+        body: JSON.stringify({
+          fileName: safeName,
+          dataUrl: `data:${mime};base64,${base64Data}`,
+        }),
+      });
+      if (localRes.ok) {
+        const localJson = await localRes.json();
+        if (localJson && localJson.assetPath) {
+          savedLocally = true;
+          // If GitHub token is also configured, commit the same file to GitHub
+          if (owner && repo && token) {
+            const ghPath = `public${localJson.assetPath}`;
+            const ghRes = await upsertRepoFile(
+              config,
+              ghPath,
+              base64Data,
+              `CMS Asset Upload: ${safeName}`
+            );
+            if (ghRes.ok) {
+              return {
+                ok: true,
+                assetPath: localJson.assetPath,
+                message: `Saved ${safeName} locally and committed to ${ghPath} on GitHub.`,
+              };
+            }
+          }
+          return {
+            ok: true,
+            assetPath: localJson.assetPath,
+            message: `Saved ${safeName} to ${localJson.assetPath} in workspace.`,
+          };
+        }
+      }
+    } catch {
+      // Express backend not active (static host)
+    }
 
-    if (!res.ok) {
-      return { ok: false, message: res.error || 'Failed to upload asset to GitHub.' };
+    // 2. Commit directly to GitHub repo if PAT is configured
+    if (owner && repo && token) {
+      const res = await upsertRepoFile(
+        config,
+        repoPath,
+        base64Data,
+        `CMS Asset Upload: ${safeName}`
+      );
+
+      if (!res.ok) {
+        return { ok: false, message: res.error || 'Failed to upload asset to GitHub.' };
+      }
+
+      return {
+        ok: true,
+        assetPath: publicAssetPath,
+        message: `Uploaded ${safeName} directly to ${repoPath} in GitHub repository.`,
+      };
+    }
+
+    if (!savedLocally) {
+      return {
+        ok: false,
+        message: 'GitHub PAT is not configured and local server upload is unavailable.',
+      };
     }
 
     return {
       ok: true,
-      assetPath: `/assets/uploads/${targetFileName}`,
-      message: `Uploaded ${safeName} directly to ${repoPath} in GitHub repository.`,
+      assetPath: publicAssetPath,
+      message: `Saved ${safeName} to ${publicAssetPath}.`,
     };
   } catch (err) {
     return {
       ok: false,
-      message: `Error uploading file to GitHub: ${err instanceof Error ? err.message : String(err)}`,
+      message: `Error uploading file: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -417,14 +546,21 @@ export async function fetchLatestWorkflowRun(
   const repo = config.repo.trim();
   const token = config.token.trim();
 
-  if (!owner || !repo || !token) return null;
+  if (!owner || !repo) return null;
 
   try {
+    const headers: HeadersInit = {
+      Accept: 'application/vnd.github+json',
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
     const res = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/actions/runs?per_page=1`,
+      `https://api.github.com/repos/${owner}/${repo}/actions/runs?per_page=1&t=${Date.now()}`,
       {
         method: 'GET',
-        headers: getHeaders(token),
+        headers,
+        cache: 'no-store',
       }
     );
     if (!res.ok) return null;

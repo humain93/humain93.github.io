@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { PortfolioDatabase } from '../types/portfolio';
 import { DEFAULT_PORTFOLIO_DATA } from '../data/defaultPortfolioData';
+import { LAST_GH_COMMIT_TS_KEY } from '../utils/githubPublisher';
 
 const LOCAL_STORAGE_KEY = 'phd_research_portfolio_db_v6';
 const LOCAL_STORAGE_TS_KEY = 'phd_research_portfolio_ts_v6';
@@ -60,8 +61,15 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const owner = (cfg.owner || '').trim();
         const repo = (cfg.repo || '').trim();
         const branch = (cfg.branch || 'main').trim();
-        const token = (cfg.token || sessionStorage.getItem('phd_portfolio_github_pat_session_v1') || '').trim();
-        if (!owner || !repo) return null;
+        const token = (
+          cfg.token ||
+          sessionStorage.getItem('phd_portfolio_github_pat_session_v1') ||
+          ''
+        ).trim();
+        const lastCommitTs = Number(localStorage.getItem(LAST_GH_COMMIT_TS_KEY) || '0');
+
+        // Only pull from GitHub API if the admin has actively configured a PAT or committed via CMS
+        if (!owner || !repo || (!token && lastCommitTs === 0)) return null;
 
         const headers: HeadersInit = {
           Accept: 'application/vnd.github.raw+json',
@@ -81,12 +89,38 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }
         }
       } catch {
-        // Ignore GitHub fetch errors and fall back to local storage / server
+        // Ignore GitHub fetch errors
       }
       return null;
     }
 
-    async function fetchServerPortfolio() {
+    async function initializePortfolioData() {
+      // 1. First check if the local Express backend (/api/portfolio) is active (AI Studio dev/server environment).
+      // In the local development environment, /api/portfolio (backed by public/data/portfolio.json and src/data/defaultPortfolioData.ts)
+      // is the authoritative source of truth and must NEVER be overwritten by older commits on GitHub.
+      try {
+        const res = await fetch('/api/portfolio', { cache: 'no-store' });
+        if (res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const serverData: PortfolioDatabase = await res.json();
+            if (mounted && serverData && serverData.profile && Array.isArray(serverData.projects)) {
+              setData(serverData);
+              try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(serverData));
+              } catch {
+                // ignore quota error
+              }
+              setIsLoading(false);
+              return;
+            }
+          }
+        }
+      } catch {
+        // Running on static host (e.g., GitHub Pages) without Express backend
+      }
+
+      // 2. When running on static hosting (GitHub Pages), check if the admin recently committed via the in-CMS GitHub publisher
       const localCachedRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
       const localSavedTs = Number(localStorage.getItem(LOCAL_STORAGE_TS_KEY) || '0');
       let localCachedData: PortfolioDatabase | null = null;
@@ -101,78 +135,29 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         localCachedData = null;
       }
 
-      // 1. If the user has saved edits in this browser recently, or has GitHub Sync configured,
-      // check the live GitHub repository first so container restarts or CDN delays never revert edits.
-      const ghLiveData = await fetchLatestFromGitHubIfConfigured();
-      if (ghLiveData && mounted) {
-        // If local storage was saved within the last 15 seconds (while GitHub commit is still in flight),
-        // prefer localCachedData; otherwise use the committed GitHub data and sync it to local server.
-        const activeData =
-          localCachedData && Date.now() - localSavedTs < 15000 ? localCachedData : ghLiveData;
-
-        setData(activeData);
-        try {
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(activeData));
-        } catch {
-          // ignore quota error
-        }
-        // Keep the local Express server in sync if running in dev preview
-        fetch('/api/portfolio', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-passcode': sessionStorage.getItem(SESSION_AUTH_KEY) || 'phd2027',
-          },
-          body: JSON.stringify(activeData),
-        }).catch(() => {});
-
-        if (mounted) setIsLoading(false);
-        return;
-      }
-
-      // 2. If user has explicitly saved data in localStorage (localSavedTs > 0),
-      // do not let a freshly restarted container or stale static JSON overwrite their saved work!
-      if (localCachedData && localSavedTs > 0) {
+      // If the user saved edits in this browser within the last 2 minutes (while GitHub Actions is still building),
+      // keep their immediate local edits intact
+      if (localCachedData && localSavedTs > 0 && Date.now() - localSavedTs < 120000) {
         if (mounted) {
           setData(localCachedData);
           setIsLoading(false);
         }
-        // Sync the browser's saved data back to the local Express server if available
-        fetch('/api/portfolio', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-passcode': sessionStorage.getItem(SESSION_AUTH_KEY) || 'phd2027',
-          },
-          body: JSON.stringify(localCachedData),
-        }).catch(() => {});
         return;
       }
 
-      // 3. Otherwise (first visit with no local edits), load from Express API or static JSON
-      try {
-        const res = await fetch('/api/portfolio', { cache: 'no-store' });
-        if (res.ok) {
-          const contentType = res.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
-            const serverData: PortfolioDatabase = await res.json();
-            if (mounted && serverData && serverData.profile) {
-              setData(serverData);
-              try {
-                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(serverData));
-              } catch {
-                // ignore quota error
-              }
-              if (mounted) setIsLoading(false);
-              return;
-            }
-          }
+      const ghLiveData = await fetchLatestFromGitHubIfConfigured();
+      if (ghLiveData && mounted) {
+        setData(ghLiveData);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(ghLiveData));
+        } catch {
+          // ignore
         }
-      } catch {
-        // Running on static host (e.g., GitHub Pages) without Express backend
+        setIsLoading(false);
+        return;
       }
 
-      // Static GitHub Pages fallback: fetch ./data/portfolio.json if available
+      // 3. Otherwise fetch the deployed static ./data/portfolio.json on GitHub Pages
       try {
         const staticRes = await fetch(`./data/portfolio.json?t=${Date.now()}`, {
           cache: 'no-store',
@@ -181,23 +166,26 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const contentType = staticRes.headers.get('content-type') || '';
           if (contentType.includes('application/json')) {
             const staticData: PortfolioDatabase = await staticRes.json();
-            if (mounted && staticData && staticData.profile) {
+            if (mounted && staticData && staticData.profile && Array.isArray(staticData.projects)) {
               setData(staticData);
               try {
                 localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(staticData));
               } catch {
                 // ignore quota error
               }
+              setIsLoading(false);
+              return;
             }
           }
         }
       } catch {
-        // Fallback to localStorage / compiled DEFAULT_PORTFOLIO_DATA
+        // Fallback to localStorage or compiled DEFAULT_PORTFOLIO_DATA
       } finally {
         if (mounted) setIsLoading(false);
       }
     }
-    fetchServerPortfolio();
+
+    initializePortfolioData();
     return () => {
       mounted = false;
     };
@@ -218,7 +206,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       return false;
     } catch {
-      // Static fallback if backend route isn't active
+      // Static fallback if backend route isn't active (e.g., on GitHub Pages)
       if (passcode === 'phd2027') {
         setAdminPasscode(passcode);
         setIsAdminAuthenticated(true);
@@ -255,6 +243,17 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           },
           body: JSON.stringify(nextData),
         });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.data && json.data.profile) {
+            setData(json.data);
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(json.data));
+            } catch {
+              // ignore
+            }
+          }
+        }
         const timestamp = new Date().toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
@@ -282,6 +281,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setData(DEFAULT_PORTFOLIO_DATA);
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(DEFAULT_PORTFOLIO_DATA));
+      localStorage.setItem(LOCAL_STORAGE_TS_KEY, String(Date.now()));
       await fetch('/api/portfolio/reset', {
         method: 'POST',
         headers: {
