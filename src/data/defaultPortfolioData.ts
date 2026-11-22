@@ -1,4 +1,4 @@
-import { PortfolioDatabase } from "../types/portfolio";
+import { PortfolioDatabase } from '../types/portfolio';
 
 export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
   "profile": {
@@ -15,7 +15,7 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
     "linkedinUrl": "https://linkedin.com",
     "heroHeadline": "Data-Driven Modeling & Physics-Informed Machine Learning, Nonlinear Dynamics & Intelligent Control , Robotics & Autonomy",
     "heroLeadParagraph": "Mechanical engineer with 8 years of experience in utility-scale computational modeling, digital twins, and field data systems for a ~2-million-meter power distribution network. Highly motivated to pursue a Ph.D. focusing on intelligent dynamical systems, robotics, and physics-informed AI, learning-based control, with applications to energy and cyber-physical systems.",
-    "heroImage": "/src/assets/images/sindy_rl_cartpole_architecture_1794056013583.jpg",
+    "heroImage": "",
     "aboutBiography": [
       "I am a Mechanical Engineering graduate from the Bangladesh University of Engineering and Technology (BUET, CGPA 3.47/4.00; Senior Year Trend: L4/T1: 3.71, L4/T2: 3.96) with 8 years of combined academic & industry experience in computational modeling and utility-scale cyber-physical infrastructure.",
       "My independent research and academic publications investigate how interpretable mathematical structure can be combined with modern machine learning and control. Recently, I implemented the SINDy-RL framework based on a paper titled 'SINDy-RL: Interpretable and Efficient Model-Based Reinforcement Learning' (Zolman et al., 2025) on the nonlinear CartPole swing-up control task—constructing a 41-term quadratic control-affine basis library via PySINDy (Sequential Thresholded Ridge Regression) and coupling the learned sparse surrogate model with Proximal Policy Optimization (PPO) in Ray RLlib.",
@@ -31,14 +31,14 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
     "Hybrid Machine Learning Framework for Predictive Maintenance from sensor data"
   ],
   "simulationsConfig": {
-    "enabled": true,
+    "enabled": false,
     "sectionKicker": "04. Live Mathematical & Physical Simulations of My Research Works",
     "sectionTitle": "Interactive Scientific Demonstrations & Visualizations",
     "sectionDescription": "Interact directly with the numerical models behind my SINDy-RL CartPole Swing-Up, SI Engine Heat Transfer Thesis, and Utility Grid Digital Twin projects.",
     "modules": [
       {
         "id": "sindy-rl-cartpole",
-        "enabled": true,
+        "enabled": false,
         "tabLabel": "SINDy-RL CartPole",
         "title": "01. SINDy-RL Cart-Pole: 14-Term Learned Dynamics (Update 39, Δt = 0.01 s) + Ray RLlib PPO",
         "governingEquationLatex": "\\mathbf{x}_{k+1} = \\boldsymbol{\\Theta}(\\mathbf{x}_k, u_k)\\boldsymbol{\\Xi}, \\quad \\pi_{\\boldsymbol{\\phi}}(u_k | \\mathbf{x}_k)"
@@ -52,7 +52,7 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
       },
       {
         "id": "grid-digital-twin",
-        "enabled": true,
+        "enabled": false,
         "tabLabel": "Digital Twin & Sensor ML",
         "title": "03. NESCO 2M-Meter Digital Twin & Hybrid RF-ANN Predictive Maintenance (IEOM 2026, 84.5% Accuracy)",
         "governingEquationLatex": "V_j^2 = V_i^2 - 2(r_{ij}P_{ij} + x_{ij}Q_{ij}) + (r_{ij}^2 + x_{ij}^2)\\ell_{ij}"
@@ -70,14 +70,14 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
     "projectsSectionTitle": "Research & Engineering Projects Showcase",
     "projectsSectionSubtitle": "Click any project below to view its dedicated technical page featuring problem formulation, methodology, governing equations, system block diagrams, performance graphs, and interactive simulations.",
     "showCategoryFilterBar": true,
-    "showSimulationsSection": true,
+    "showSimulationsSection": false,
     "showPublicationsSection": true,
     "publicationsSectionTitle": "Publications & Presentations",
     "showEducationSection": true,
     "showCertificationsSection": true,
     "showExperienceSection": true,
     "showSkillsSection": true,
-    "showCvDownloadSection": true
+    "showCvDownloadSection": false
   },
   "researchInterests": [
     {
@@ -145,7 +145,7 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
     {
       "id": "proj-sindy-rl",
       "slug": "sindy-rl-model-based-reinforcement-learning",
-      "title": "SINDy-RL Cart-Pole: Implementation, Diagnostics & Learned-Model Simulation",
+      "title": "SINDy-RL for interpretable and efficient model-based reinforcement learning",
       "subtitle": "Model-Based RL · Sparse System Identification · Dyna-Style PPO on dm_control Cart-Pole Swing-Up",
       "category": "Nonlinear Dynamics & Reinforcement learning",
       "status": "Published",
@@ -316,7 +316,14 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
           "url": "/assets/aistudio/SINDy-RL_Cart-Pole__Reproduction__Diagnostics___Learned-Model_Simulation_2425c262.html",
           "type": "Technical Report"
         }
-      ]
+      ],
+      "moduleVisibility": {
+        "showReportCharts": false,
+        "showReportSimulator": false,
+        "showPerformanceGraph": false,
+        "interactiveModuleType": "none",
+        "showInteractiveModule": false
+      }
     },
     {
       "id": "proj-si-engine-thesis",
@@ -648,7 +655,7 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
       "category": "Hybrid Machine Learning Framework for Predictive Maintenance from sensor data",
       "status": "Published",
       "isTemplatePlaceholder": false,
-      "period": "2025 – 2026",
+      "period": "2026",
       "role": "First Author (Sk. Humain Ahmed, Debashish Debnath, Bishwajit Saha, Ashraful Alam Limon, Md. Nasif Hasan)",
       "laboratoryOrInstitution": "9th European International Conference on Industrial Engineering and Operations Management (IEOM 2026)",
       "heroImage": "/src/assets/images/predictive_maintenance_sensors_1794056017073.jpg",
@@ -957,7 +964,7 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
     }
   ],
   "cv": {
-    "lastUpdated": "November 2026",
+    "lastUpdated": "2026-11-22",
     "fileName": "CV_SK_HUMAIN_AHMED.pdf",
     "uploadedPdfDataUrl": "",
     "externalPdfUrl": "/assets/aistudio/CV_SK_HUMAIN_AHMED.pdf",
@@ -983,5 +990,6 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
         "period": "2016 – 2017"
       }
     ]
-  }
+  },
+  "lastUpdatedTs": 1795368837145
 };
