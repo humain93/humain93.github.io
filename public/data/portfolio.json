@@ -73,7 +73,7 @@
     "publicationsSectionTitle": "Publications & Presentations",
     "showEducationSection": true,
     "showCertificationsSection": true,
-    "showExperienceSection": true,
+    "showExperienceSection": false,
     "showSkillsSection": true,
     "showCvDownloadSection": false
   },
@@ -642,7 +642,8 @@
         "showPerformanceGraph": false,
         "showEquations": false,
         "showReportDiagnosticsOrTables": false,
-        "showReportCharts": false
+        "showReportCharts": false,
+        "showReportSimulator": false
       }
     },
     {
@@ -800,7 +801,10 @@
           "url": "/assets/aistudio/pm_hml_41bf56b1.pdf",
           "type": "Paper PDF"
         }
-      ]
+      ],
+      "moduleVisibility": {
+        "showReportSimulator": false
+      }
     }
   ],
   "publications": [
@@ -989,5 +993,5 @@
       }
     ]
   },
-  "lastUpdatedTs": 1795369636451
+  "lastUpdatedTs": 1795370072808
 }
