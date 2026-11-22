@@ -318,11 +318,11 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
         }
       ],
       "moduleVisibility": {
-        "showReportCharts": false,
-        "showReportSimulator": false,
+        "showReportCharts": true,
+        "showReportSimulator": true,
         "showPerformanceGraph": false,
-        "interactiveModuleType": "none",
-        "showInteractiveModule": false
+        "interactiveModuleType": "auto",
+        "showInteractiveModule": true
       }
     },
     {
@@ -991,5 +991,5 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
       }
     ]
   },
-  "lastUpdatedTs": 1795368837145
+  "lastUpdatedTs": 1795369636451
 };
