@@ -316,11 +316,11 @@
         }
       ],
       "moduleVisibility": {
-        "showReportCharts": false,
-        "showReportSimulator": false,
+        "showReportCharts": true,
+        "showReportSimulator": true,
         "showPerformanceGraph": false,
-        "interactiveModuleType": "none",
-        "showInteractiveModule": false
+        "interactiveModuleType": "auto",
+        "showInteractiveModule": true
       }
     },
     {
@@ -989,5 +989,5 @@
       }
     ]
   },
-  "lastUpdatedTs": 1795368837145
+  "lastUpdatedTs": 1795369636451
 }
