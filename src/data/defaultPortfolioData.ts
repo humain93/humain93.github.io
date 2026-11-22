@@ -75,7 +75,7 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
     "publicationsSectionTitle": "Publications & Presentations",
     "showEducationSection": true,
     "showCertificationsSection": true,
-    "showExperienceSection": true,
+    "showExperienceSection": false,
     "showSkillsSection": true,
     "showCvDownloadSection": false
   },
@@ -644,7 +644,8 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
         "showPerformanceGraph": false,
         "showEquations": false,
         "showReportDiagnosticsOrTables": false,
-        "showReportCharts": false
+        "showReportCharts": false,
+        "showReportSimulator": false
       }
     },
     {
@@ -802,7 +803,10 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
           "url": "/assets/aistudio/pm_hml_41bf56b1.pdf",
           "type": "Paper PDF"
         }
-      ]
+      ],
+      "moduleVisibility": {
+        "showReportSimulator": false
+      }
     }
   ],
   "publications": [
@@ -991,5 +995,5 @@ export const DEFAULT_PORTFOLIO_DATA: PortfolioDatabase = {
       }
     ]
   },
-  "lastUpdatedTs": 1795369636451
+  "lastUpdatedTs": 1795370072808
 };
